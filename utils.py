@@ -13,19 +13,32 @@ def to_cuda(x):
         x = x.cuda()
     return x
 
-def get_data(BATCH_SIZE=100):
+def get_data(argsdict):
     """ Load data for binared MNIST """
     torch.manual_seed(3435)
 
-    # Download our data
-    train_dataset = datasets.MNIST(root='./data/',
-                                    train=True,
-                                    transform=transforms.ToTensor(),
-                                    download=True)
+    BATCH_SIZE=argsdict['batch_size']
 
-    test_dataset = datasets.MNIST(root='./data/',
-                                   train=False,
-                                   transform=transforms.ToTensor())
+
+    if argsdict['dataset']=="MNIST":
+        # Download our data
+        train_dataset = datasets.MNIST(root='data/',
+                                        train=True,
+                                        transform=transforms.ToTensor(),
+                                        download=True)
+
+        test_dataset = datasets.MNIST(root='data/',
+                                       train=False,
+                                       transform=transforms.ToTensor())
+    elif argsdict['dataset']=="CelebA":
+        train_dataset = datasets.CelebA(root='data/',
+                                       split='train',
+                                       transform=transforms.ToTensor(),
+                                       download=True)
+
+        test_dataset = datasets.CelebA(root='data/',
+                                      split='valid',
+                                      transform=transforms.ToTensor())
 
     # Use greyscale values as sampling probabilities to get back to [0,1]
     train_img = torch.stack([torch.bernoulli(d[0]) for d in train_dataset])
