@@ -8,8 +8,16 @@ def train(argsdict):
     # Load in binarized MNIST data, separate into data loaders
     train_iter, val_iter, test_iter = get_data(argsdict)
 
+    #size is a tuple of tot numb pixel x numb channel
+    if argsdict['dataset']=="MNIST":
+        img_size=784
+    elif argsdict['dataset']=='CIFAR':
+        img_size=(1024, 3)
+    elif argsdict['dataset']=='svhn':
+        img_size=(1024, 3)
+
     # Init model
-    model = fGAN(image_size=784,
+    model = fGAN(image_size=img_size,
                  hidden_dim=400,
                  z_dim=20)
 
@@ -22,7 +30,7 @@ def train(argsdict):
 
     # Train
     trainer.train(num_epochs=25,
-                  method='total_variation',
+                  method=argsdict['divergence'],
                   G_lr=1e-4,
                   D_lr=1e-4,
                   D_steps=1)
@@ -30,7 +38,8 @@ def train(argsdict):
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
-    parser.add_argument('--dataset', type=str, default='MNIST', help='Dataset you want to use. Options include MNIST and CelebA')
+    parser.add_argument('--dataset', type=str, default='MNIST', help='Dataset you want to use. Options include MNIST, CelebA, and CIFAR')
+    parser.add_argument('--divergence', type=str, default='forward_kl', help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon')
     parser.add_argument('--batch_size', type=int, default='100', help='batch size for training and testing')
     args = parser.parse_args()
     argsdict = args.__dict__

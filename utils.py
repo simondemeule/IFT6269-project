@@ -19,6 +19,11 @@ def get_data(argsdict):
 
     BATCH_SIZE=argsdict['batch_size']
 
+    normalize = transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                                     std=[0.5, 0.5, 0.5])
+    transform = transforms.Compose((
+        transforms.ToTensor(),
+        normalize))
 
     if argsdict['dataset']=="MNIST":
         # Download our data
@@ -30,6 +35,23 @@ def get_data(argsdict):
         test_dataset = datasets.MNIST(root='data/',
                                        train=False,
                                        transform=transforms.ToTensor())
+        train_img = torch.stack([torch.bernoulli(d[0]) for d in train_dataset])
+        train_label = torch.LongTensor([d[1] for d in train_dataset])
+
+        test_img = torch.stack([torch.bernoulli(d[0]) for d in test_dataset])
+        test_label = torch.LongTensor([d[1] for d in test_dataset])
+
+        # MNIST has no official train dataset so use last 10000 as validation
+        val_img = train_img[-10000:].clone()
+        val_label = train_label[-10000:].clone()
+
+        train_img = train_img[:-10000]
+        train_label = train_label[:-10000]
+
+        # Create data loaders
+        train = torch.utils.data.TensorDataset(train_img, train_label)
+        val = torch.utils.data.TensorDataset(val_img, val_label)
+        test = torch.utils.data.TensorDataset(test_img, test_label)
     elif argsdict['dataset']=="CelebA":
         train_dataset = datasets.CelebA(root='data/',
                                        split='train',
@@ -39,25 +61,26 @@ def get_data(argsdict):
         test_dataset = datasets.CelebA(root='data/',
                                       split='valid',
                                       transform=transforms.ToTensor())
+    elif argsdict['dataset']=="CIFAR":
+        train_dataset = datasets.CIFAR10(root='data/',
+                                       train=True,
+                                       transform=transforms.ToTensor(),
+                                       download=True)
 
+        test_dataset = datasets.CIFAR10(root='data/',
+                                      train=False,
+                                      transform=transforms.ToTensor())
+    elif argsdict['dataset']=="svhn":
+        train = datasets.SVHN('data/', split='train', download=True, transform=transform)
+        val = datasets.SVHN('data/', split='train', download=True, transform=transform)
+        test = datasets.SVHN('data/', split='test', download=True, transform=transform)
+
+
+    #TODO CHANGE HERE
     # Use greyscale values as sampling probabilities to get back to [0,1]
-    train_img = torch.stack([torch.bernoulli(d[0]) for d in train_dataset])
-    train_label = torch.LongTensor([d[1] for d in train_dataset])
 
-    test_img = torch.stack([torch.bernoulli(d[0]) for d in test_dataset])
-    test_label = torch.LongTensor([d[1] for d in test_dataset])
 
-    # MNIST has no official train dataset so use last 10000 as validation
-    val_img = train_img[-10000:].clone()
-    val_label = train_label[-10000:].clone()
 
-    train_img = train_img[:-10000]
-    train_label = train_label[:-10000]
-
-    # Create data loaders
-    train = torch.utils.data.TensorDataset(train_img, train_label)
-    val = torch.utils.data.TensorDataset(val_img, val_label)
-    test = torch.utils.data.TensorDataset(test_img, test_label)
 
     train_iter = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
     val_iter = torch.utils.data.DataLoader(val, batch_size=BATCH_SIZE, shuffle=True)
