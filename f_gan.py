@@ -47,21 +47,59 @@ class Generator(nn.Module):
         self.generate = nn.Linear(hidden_dim, image_size)
 
     def forward(self, x):
-        activated = F.relu(self.linear(x))
+        x=x.view(x.shape[0],-1)
+        activated=F.relu(self.linear(x))
+        # generation=torch.sigmoid(activated)
         generation = torch.sigmoid(self.generate(activated))
+        generation.reshape(generation.shape[0], 1, 28, 28)
         return generation
 
+# # TODO Conv is not working very well.
+# class Generator(nn.Module):
+#     """ Generator. Input is noise, output is a generated image.
+#     """
+#     def __init__(self, image_size, hidden_dim, z_dim):
+#         super().__init__()
+#         print(hidden_dim)
+#         self.linear = nn.Linear(z_dim, hidden_dim)
+#         self.linear2 = nn.Linear(784, 784)
+#         self.height=int(z_dim**0.5)
+#         x=[
+#             nn.ConvTranspose2d(in_channels=1, out_channels=1, kernel_size=1, padding=0)
+#            ]
+#         self.conv=nn.Sequential(*x)
+#         self.generate = nn.Linear(hidden_dim, image_size)
+#
+#     def forward(self, x):
+#         # print(x.shape)
+#         # x=self.linear(x)
+#         # x=torch.relu(x)
+#         # x=x.view(-1, 1, self.height, self.height)
+#         # activated = self.conv(x)
+#         # print(activated.shape)
+#         # print(x.shape)
+#         x=F.relu(self.linear(x))
+#         # print(x.shape)
+#         x = x.view(-1, 1, self.height, self.height)
+#         # print(x.shape)
+#         x=F.relu(self.conv(x))
+#         x=x.view(x.shape[0], -1)
+#         # generation=torch.sigmoid(activated)
+#         generation = torch.sigmoid(self.generate(x))
+#         generation=generation.view(generation.shape[0], 1, 28, 28)
+#         return generation
 
 class Discriminator(nn.Module):
     """ Discriminator. Input is an image (real or generated),
     output is P(generated).
     """
-    def __init__(self, image_size, hidden_dim, output_dim):
+    def __init__(self, image_size, hidden_dim):
         super().__init__()
         self.linear = nn.Linear(image_size, hidden_dim)
-        self.discriminate = nn.Linear(hidden_dim, output_dim)
+        self.discriminate = nn.Linear(hidden_dim, 1)
 
     def forward(self, x):
+        x = to_cuda(x.view(x.shape[0], -1))
         activated = F.relu(self.linear(x))
         discrimination = torch.sigmoid(self.discriminate(activated))
         return discrimination
@@ -289,7 +327,6 @@ class fGANTrainer:
     def process_batch(self, iterator):
         """ Generate a process batch to be input into the Discriminator D """
         images, _ = next(iter(iterator))
-        images = to_cuda(images.view(images.shape[0], -1))
         return images
 
     def generate_images(self, epoch, num_outputs=36, save=True):
