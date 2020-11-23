@@ -2,7 +2,7 @@ import torch
 from torch import optim
 from torch.autograd import Variable
 from torchvision.utils import save_image
-from utils import get_data
+from utils import get_data, visualize_tsne
 from f_gan import Generator, Discriminator, Divergence
 import argparse
 import numpy as np
@@ -14,6 +14,7 @@ if __name__ == '__main__':
     parser.add_argument('--divergence', type=str, default='jensen_shannon',
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon')
     parser.add_argument('--batch_size', type=int, default='100', help='batch size for training and testing')
+    parser.add_argument('--visualize', action='store_true', help='save visualization of the datasets using t-sne')
     args = parser.parse_args()
 
     argsdict = args.__dict__
@@ -46,8 +47,8 @@ if __name__ == '__main__':
 
     #TODO Adding beta seems to make total variation go to 0, why.
     #TODO In rapport talk about how finicky the whole system is
-    optim_critic = optim.Adam(critic.parameters(), lr=lr)#, betas=(beta1, beta2))
-    optim_generator = optim.Adam(generator.parameters(), lr=lr)#, betas=(beta1, beta2))
+    optim_critic = optim.Adam(critic.parameters(), lr=lr, betas=(beta1, beta2))
+    optim_generator = optim.Adam(generator.parameters(), lr=lr, betas=(beta1, beta2))
 
     losses=Divergence(argsdict['divergence'])
 
@@ -94,5 +95,6 @@ if __name__ == '__main__':
               % (epoch, n_iter, np.mean(G_losses), np.mean(D_losses)))
         with torch.no_grad():
             img=generator(Fix_Noise)
-        # save_image(img.view(1, 28, 28), f"MNIST_IMGS/{argsdict['divergence']}/%d.png" % epoch)
+        if argsdict['visualize']:
+            visualize_tsne(fake_img, real_img, argsdict, epoch)
         save_image(img.view(-1, 1, 28, 28), f"MNIST_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5)

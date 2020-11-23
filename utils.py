@@ -1,7 +1,10 @@
 import torch
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
-
+from sklearn.manifold import TSNE
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 def to_var(x):
     """ Make a tensor cuda-erized and requires gradient """
@@ -87,3 +90,22 @@ def get_data(argsdict):
     test_iter = torch.utils.data.DataLoader(test, batch_size=BATCH_SIZE, shuffle=True)
 
     return train_iter, val_iter, test_iter
+
+def visualize_tsne(fake_img, real_img, argsdict, epoch):
+    """Visualizing tsn"""
+    #Reshaping images and concatenating
+    imgs = torch.cat([fake_img.reshape(fake_img.shape[0], -1).cpu().detach(), real_img.reshape(real_img.shape[0], -1).cpu().detach()])
+    y = ['Generated' for _ in range(fake_img.shape[0])] + ['Real' for _ in range(real_img.shape[0])]
+    #tsne
+    tsne_obj = TSNE(n_components=2).fit_transform(imgs)
+    tsne_df = pd.DataFrame({'X': tsne_obj[:, 0],
+                            'Y': tsne_obj[:, 1],
+                            'Images': y})
+    sns_plot = sns.scatterplot(x="X", y="Y",
+                               hue="Images",
+                               palette=['purple', 'red'],
+                               legend='auto',
+                               data=tsne_df)
+    sns_plot.figure.savefig(f"MNIST_IMGS/{argsdict['divergence']}/TSNEVIZ%d.png" % epoch)
+    #Closing because I hate matplotlib its a piece of garbage
+    plt.close(sns_plot.figure)

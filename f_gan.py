@@ -54,40 +54,6 @@ class Generator(nn.Module):
         generation.reshape(generation.shape[0], 1, 28, 28)
         return generation
 
-# # TODO Conv is not working very well.
-# class Generator(nn.Module):
-#     """ Generator. Input is noise, output is a generated image.
-#     """
-#     def __init__(self, image_size, hidden_dim, z_dim):
-#         super().__init__()
-#         print(hidden_dim)
-#         self.linear = nn.Linear(z_dim, hidden_dim)
-#         self.linear2 = nn.Linear(784, 784)
-#         self.height=int(z_dim**0.5)
-#         x=[
-#             nn.ConvTranspose2d(in_channels=1, out_channels=1, kernel_size=1, padding=0)
-#            ]
-#         self.conv=nn.Sequential(*x)
-#         self.generate = nn.Linear(hidden_dim, image_size)
-#
-#     def forward(self, x):
-#         # print(x.shape)
-#         # x=self.linear(x)
-#         # x=torch.relu(x)
-#         # x=x.view(-1, 1, self.height, self.height)
-#         # activated = self.conv(x)
-#         # print(activated.shape)
-#         # print(x.shape)
-#         x=F.relu(self.linear(x))
-#         # print(x.shape)
-#         x = x.view(-1, 1, self.height, self.height)
-#         # print(x.shape)
-#         x=F.relu(self.conv(x))
-#         x=x.view(x.shape[0], -1)
-#         # generation=torch.sigmoid(activated)
-#         generation = torch.sigmoid(self.generate(x))
-#         generation=generation.view(generation.shape[0], 1, 28, 28)
-#         return generation
 
 class Discriminator(nn.Module):
     """ Discriminator. Input is an image (real or generated),
@@ -104,17 +70,92 @@ class Discriminator(nn.Module):
         discrimination = torch.sigmoid(self.discriminate(activated))
         return discrimination
 
+#TODO Generate with these for MNIST
+
+# class Generatorsvhn(nn.Module):
+#     """ Generator. Input is noise, output is a generated image.
+#     """
+#     def __init__(self, image_size, hidden_dim, z_dim):
+#         super().__init__()
+#         self.linear = nn.Linear(z_dim, hidden_dim)
+#         self.generate = nn.Linear(hidden_dim, image_size)
+#
+#     def forward(self, x):
+#         x=x.view(x.shape[0],-1)
+#         activated=F.relu(self.linear(x))
+#         # generation=torch.sigmoid(activated)
+#         generation = torch.sigmoid(self.generate(activated))
+#         generation.reshape(generation.shape[0], 3, 32, 32)
+#         return generation
+#
+# #
+# class Criticsvhn(nn.Module):
+#     """ Discriminator. Input is an image (real or generated),
+#     output is P(generated).
+#     """
+#     def __init__(self, image_size, hidden_dim):
+#         super().__init__()
+#         self.linear = nn.Linear(image_size, hidden_dim)
+#         self.discriminate = nn.Linear(hidden_dim, 1)
+#
+#     def forward(self, x):
+#         x = to_cuda(x.view(x.shape[0], -1))
+#         # print(self.linear)
+#         # print(x.shape)
+#         activated = F.relu(self.linear(x))
+#         discrimination = torch.sigmoid(self.discriminate(activated))
+#         return discrimination
+
+class Criticsvhn(nn.Module):
+    def __init__(self, h_dim=64):
+        super(Criticsvhn, self).__init__()
+
+        x = [nn.Conv2d(3, h_dim, 4, 2, 1),
+             nn.LeakyReLU(0.2, inplace=True),
+             nn.Conv2d(h_dim, 2*h_dim, 4, 2, 1),
+             nn.LeakyReLU(0.2, inplace=True),
+             nn.Conv2d(2*h_dim, 4*h_dim, 4, 2, 1),
+             nn.LeakyReLU(0.2, inplace=True),
+             nn.Conv2d(4*h_dim, 1, 4, 1, 0)]
+
+        self.x = nn.Sequential(*x)
+
+    def forward(self, x):
+        return torch.sigmoid(self.x(x).squeeze())
+
+
+class Generatorsvhn(nn.Module):
+    def __init__(self, z_dim=100, h_dim=64):
+        super(Generatorsvhn, self).__init__()
+
+        decoder = [nn.ConvTranspose2d(z_dim, 4*h_dim, 4, 1, 0),
+                   nn.BatchNorm2d(4*h_dim),
+                   nn.ReLU(True),
+                   nn.ConvTranspose2d(4*h_dim, 2*h_dim, 4, 2, 1),
+                   nn.BatchNorm2d(2*h_dim),
+                   nn.ReLU(True),
+                   nn.ConvTranspose2d(2*h_dim, h_dim, 4, 2, 1),
+                   nn.BatchNorm2d(h_dim),
+                   nn.ReLU(True),
+                   nn.ConvTranspose2d(h_dim, 3, 4, 2, 1),
+                   nn.Sigmoid()
+                   ]
+        self.decoder = nn.Sequential(*decoder)
+
+    def forward(self, z):
+        return self.decoder(z.view(z.shape[0], z.shape[1], 1, 1))
+
 
 class fGAN(nn.Module):
     """ Super class to contain both Discriminator (D) and Generator (G)
     """
-    def __init__(self, image_size, hidden_dim, z_dim, output_dim=1):
+    def __init__(self, image_size, hidden_dim, z_dim):
         super().__init__()
 
         self.__dict__.update(locals())
 
         self.G = Generator(image_size, hidden_dim, z_dim)
-        self.D = Discriminator(image_size, hidden_dim, output_dim)
+        self.D = Discriminator(image_size, hidden_dim)
 
         self.shape = int(image_size ** 0.5)
 
