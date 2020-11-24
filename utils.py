@@ -82,12 +82,11 @@ def get_data(argsdict):
         train = datasets.SVHN('data/', split='train', download=True, transform=transform)
         val = datasets.SVHN('data/', split='train', download=True, transform=transform)
         test = datasets.SVHN('data/', split='test', download=True, transform=transform)
-
-
-    #TODO CHANGE HERE
-    # Use greyscale values as sampling probabilities to get back to [0,1]
-
-
+    elif argsdict['dataset']=='Gaussian':
+        train_iter=GaussianGen(argsdict, BATCH_SIZE, 1000)
+        val_iter=GaussianGen(argsdict, BATCH_SIZE, 1000)
+        test_iter=GaussianGen(argsdict, BATCH_SIZE, 1000)
+        return train_iter, val_iter, test_iter
 
 
     train_iter = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
@@ -95,6 +94,12 @@ def get_data(argsdict):
     test_iter = torch.utils.data.DataLoader(test, batch_size=BATCH_SIZE, shuffle=True)
 
     return train_iter, val_iter, test_iter
+
+def GaussianGen(argsdict, batch_size, Total):
+    for i in range(int(Total/batch_size)):
+        bb=torch.randn((batch_size, 1, 1, argsdict['Gauss_size']))
+        yield bb, torch.ones(2)
+
 
 def visualize_tsne(fake_img, real_img, argsdict, epoch):
     """Visualizing tsn"""

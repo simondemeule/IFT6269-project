@@ -13,9 +13,10 @@ import json
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
     parser.add_argument('--dataset', type=str, default='svhn',
-                        help='Dataset you want to use. Options include MNIST, CelebA, and CIFAR')
+                        help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
     parser.add_argument('--divergence', type=str, default='total_variation',
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon')
+    parser.add_argument('--Gauss_size', type=int, default='30', help='The size of the Gaussian we generate')
 
     #Training options
     parser.add_argument('--batch_size', type=int, default='64', help='batch size for training and testing')
@@ -47,6 +48,9 @@ if __name__ == '__main__':
     elif argsdict['dataset'] in ['MNIST']:
         image_shape=(1, 28, 28)
         encoding='sigmoid'
+    elif argsdict['dataset'] in ['Gaussian']:
+        image_shape=(1, 1, argsdict['Gauss_size'])
+        encoding='tanh'
     # elif argsdict['dataset'] in ['Gaussian']:
     #
 
@@ -84,8 +88,6 @@ if __name__ == '__main__':
         for i_batch, sample_batch in enumerate(train_loader):
             optim_critic.zero_grad()
             real_img, label_batch=sample_batch[0].cuda(), sample_batch[1]
-
-
             #fake img
             noise=Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim))).cuda()
             fake_img=generator(noise)
@@ -119,6 +121,9 @@ if __name__ == '__main__':
               % (epoch, n_iter, np.mean(G_losses), np.mean(D_losses)))
         losses_Generator.append(np.mean(G_losses))
         losses_Discriminator.append(np.mean(D_losses))
+        if argsdict['dataset']=='Gaussian':
+            #A bit hacky but reset iterators
+            train_loader, valid_loader, test_loader = get_data(argsdict)
         if argsdict['visualize']:
             visualize_tsne(fake_img, real_img, argsdict, epoch)
         with torch.no_grad():
