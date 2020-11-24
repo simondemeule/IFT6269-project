@@ -36,12 +36,19 @@ if __name__ == '__main__':
     beta1 = 0.5
     beta2 = 0.9
     z_dim = 25
-    hidden_dim=(64, 64)
+    hidden_dim=(64, 16)
 
     if argsdict['dataset'] in ['svhn']:
         image_shape=(3, 32, 32)
+        encoding='tanh'
+    elif argsdict['dataset'] in ['CIFAR']:
+        image_shape=(3, 32,32)
+        encoding='sigmoid'
     elif argsdict['dataset'] in ['MNIST']:
         image_shape=(1, 28, 28)
+        encoding='sigmoid'
+    # elif argsdict['dataset'] in ['Gaussian']:
+    #
 
     # Use the GPU if you have one
     if torch.cuda.is_available():
@@ -54,9 +61,9 @@ if __name__ == '__main__':
 
     train_loader, valid_loader, test_loader = get_data(argsdict)
     print(device)
-    generator = Generator(image_shape, hidden_dim[0], hidden_dim[1], z_dim).to(device)
+    generator = Generator(image_shape, hidden_dim[0], hidden_dim[1], z_dim, encoding).to(device)
     # generator = Generatorsvhn(z_dim, hidden_dim).to(device)
-    critic = Critic(image_shape, 16, 64).to(device)
+    critic = Critic(image_shape, 32, 32).to(device)
     # critic = Criticsvhn(argsdict['hidden_discri_size']).to(device)
 
     #TODO Adding beta seems to make total variation go to 0, why.

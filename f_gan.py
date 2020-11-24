@@ -76,25 +76,26 @@ from utils import *
 class Generator(nn.Module):
     """ Generator. Input is noise, output is a generated image.
     """
-    def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim):
+    def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding):
         super().__init__()
         self.image_size=image_size
         x = [nn.Linear(z_dim, hidden_dim2),
-             # nn.BatchNorm1d(hidden_dim),
-             # nn.ReLU(inplace=True),
+             nn.BatchNorm1d(hidden_dim2),
+             nn.ReLU(inplace=True),
              # nn.Linear(hidden_dim, hidden_dim2),
              # nn.BatchNorm1d(hidden_dim2),
-             nn.ReLU(inplace=True),
+             # nn.ReLU(inplace=True),
              nn.Linear(hidden_dim2, image_size[0]*image_size[1]*image_size[2])]
 
         self.x = nn.Sequential(*x)
+        self.encoding=encoding
 
     def forward(self, x):
         x=to_cuda(x.view(x.shape[0],-1))
         x=self.x(x)
-        if self.image_size[0]==3:
+        if self.encoding=='tanh':
             x = torch.tanh(x)
-        elif self.image_size[0]==1:
+        elif self.encoding=='sigmoid':
             x = torch.sigmoid(x)
         x.reshape(x.shape[0], self.image_size[0],self.image_size[1],self.image_size[2])
         return x
@@ -107,12 +108,11 @@ class Critic(nn.Module):
     def __init__(self, image_size, hidden_dim, hidden_dim2):
         super().__init__()
         self.image_size = image_size
-        x = [nn.Linear(image_size[0]*image_size[1]*image_size[2], hidden_dim2),
-             nn.ReLU(inplace=True),
-             # nn.Linear(hidden_dim, hidden_dim2),
-             # nn.ELU(inplace=True),
-             nn.Linear(hidden_dim2, 1),
-             nn.Sigmoid()]
+        x = [nn.Linear(image_size[0]*image_size[1]*image_size[2], hidden_dim),
+             nn.ELU(inplace=True),
+             nn.Linear(hidden_dim, hidden_dim2),
+             nn.ELU(inplace=True),
+             nn.Linear(hidden_dim2, 1)]
         #TODO: I'm very unsure as to wether we should have a sigmoid at the end of the critic. The
         #OG implementation had one but the paper says "The final activation function is determined by the divergence"
         #So to check.
