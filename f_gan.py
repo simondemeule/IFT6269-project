@@ -38,41 +38,7 @@ from tqdm import tqdm
 from utils import *
 
 
-class Generator(nn.Module):
-    """ Generator. Input is noise, output is a generated image.
-    """
-    def __init__(self, image_size, hidden_dim, z_dim):
-        super().__init__()
-        self.linear = nn.Linear(z_dim, hidden_dim)
-        self.generate = nn.Linear(hidden_dim, image_size)
-
-    def forward(self, x):
-        x=x.view(x.shape[0],-1)
-        activated=F.relu(self.linear(x))
-        # generation=torch.sigmoid(activated)
-        generation = torch.sigmoid(self.generate(activated))
-        generation.reshape(generation.shape[0], 1, 28, 28)
-        return generation
-
-
-class Discriminator(nn.Module):
-    """ Discriminator. Input is an image (real or generated),
-    output is P(generated).
-    """
-    def __init__(self, image_size, hidden_dim):
-        super().__init__()
-        self.linear = nn.Linear(image_size, hidden_dim)
-        self.discriminate = nn.Linear(hidden_dim, 1)
-
-    def forward(self, x):
-        x = to_cuda(x.view(x.shape[0], -1))
-        activated = F.relu(self.linear(x))
-        discrimination = torch.sigmoid(self.discriminate(activated))
-        return discrimination
-
-#TODO Generate with these for MNIST
-
-# class Generatorsvhn(nn.Module):
+# class Generator(nn.Module):
 #     """ Generator. Input is noise, output is a generated image.
 #     """
 #     def __init__(self, image_size, hidden_dim, z_dim):
@@ -85,11 +51,11 @@ class Discriminator(nn.Module):
 #         activated=F.relu(self.linear(x))
 #         # generation=torch.sigmoid(activated)
 #         generation = torch.sigmoid(self.generate(activated))
-#         generation.reshape(generation.shape[0], 3, 32, 32)
+#         generation.reshape(generation.shape[0], 1, 28, 28)
 #         return generation
-#
-# #
-# class Criticsvhn(nn.Module):
+
+
+# class Discriminator(nn.Module):
 #     """ Discriminator. Input is an image (real or generated),
 #     output is P(generated).
 #     """
@@ -100,28 +66,90 @@ class Discriminator(nn.Module):
 #
 #     def forward(self, x):
 #         x = to_cuda(x.view(x.shape[0], -1))
-#         # print(self.linear)
-#         # print(x.shape)
+#         print(x.shape)
 #         activated = F.relu(self.linear(x))
 #         discrimination = torch.sigmoid(self.discriminate(activated))
 #         return discrimination
 
-class Criticsvhn(nn.Module):
-    def __init__(self, h_dim=64):
-        super(Criticsvhn, self).__init__()
+#TODO Generate with these for MNIST
 
-        x = [nn.Conv2d(3, h_dim, 4, 2, 1),
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(h_dim, 2*h_dim, 4, 2, 1),
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(2*h_dim, 4*h_dim, 4, 2, 1),
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(4*h_dim, 1, 4, 1, 0)]
+class Generator(nn.Module):
+    """ Generator. Input is noise, output is a generated image.
+    """
+    def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim):
+        super().__init__()
+        self.image_size=image_size
+        x = [nn.Linear(z_dim, hidden_dim2),
+             # nn.BatchNorm1d(hidden_dim),
+             # nn.ReLU(inplace=True),
+             # nn.Linear(hidden_dim, hidden_dim2),
+             # nn.BatchNorm1d(hidden_dim2),
+             nn.ReLU(inplace=True),
+             nn.Linear(hidden_dim2, image_size[0]*image_size[1]*image_size[2])]
 
         self.x = nn.Sequential(*x)
 
     def forward(self, x):
-        return torch.sigmoid(self.x(x).squeeze())
+        x=to_cuda(x.view(x.shape[0],-1))
+        x=self.x(x)
+        if self.image_size[0]==3:
+            x = torch.tanh(x)
+        elif self.image_size[0]==1:
+            x = torch.sigmoid(x)
+        x.reshape(x.shape[0], self.image_size[0],self.image_size[1],self.image_size[2])
+        return x
+
+#
+class Critic(nn.Module):
+    """ Discriminator. Input is an image (real or generated),
+    output is P(generated).
+    """
+    def __init__(self, image_size, hidden_dim, hidden_dim2):
+        super().__init__()
+        self.image_size = image_size
+        x = [nn.Linear(image_size[0]*image_size[1]*image_size[2], hidden_dim2),
+             nn.ReLU(inplace=True),
+             # nn.Linear(hidden_dim, hidden_dim2),
+             # nn.ELU(inplace=True),
+             nn.Linear(hidden_dim2, 1),
+             nn.Sigmoid()]
+        #TODO: I'm very unsure as to wether we should have a sigmoid at the end of the critic. The
+        #OG implementation had one but the paper says "The final activation function is determined by the divergence"
+        #So to check.
+
+        self.x = nn.Sequential(*x)
+
+
+    def forward(self, x):
+        x = to_cuda(x.view(x.shape[0], -1))
+        x = self.x(x)
+        return x
+#
+# class Criticsvhn(nn.Module):
+#     def __init__(self, image_size, h_dim=64):
+#         super(Criticsvhn, self).__init__()
+#
+#         x = [nn.Conv2d(3, h_dim, 4, 2, 1),
+#              nn.LeakyReLU(0.2, inplace=True),
+#              nn.Conv2d(h_dim, 2*h_dim, 4, 2, 1),
+#              nn.LeakyReLU(0.2, inplace=True),
+#              nn.Conv2d(2*h_dim, 4*h_dim, 4, 2, 1),
+#              nn.LeakyReLU(0.2, inplace=True),
+#              nn.Conv2d(4*h_dim, 1, 4, 1, 0)]
+#
+#         self.x = nn.Sequential(*x)
+#         self.linear = nn.Linear(image_size, h_dim)
+#         self.discriminate = nn.Linear(h_dim, 1)
+#         self.final=nn.Linear(2,1)
+#
+#     def forward(self, x):
+#         cnn=self.x(x).squeeze()
+#         x = to_cuda(x.view(x.shape[0], -1))
+#         # print(self.linear)
+#         # print(x.shape)
+#         activated = F.relu(self.linear(x))
+#         discrimination = self.discriminate(activated)
+#         return torch.sigmoid(self.final(torch.cat([discrimination, cnn.unsqueeze(1)], dim=-1)))
 
 
 class Generatorsvhn(nn.Module):
@@ -138,7 +166,7 @@ class Generatorsvhn(nn.Module):
                    nn.BatchNorm2d(h_dim),
                    nn.ReLU(True),
                    nn.ConvTranspose2d(h_dim, 3, 4, 2, 1),
-                   nn.Sigmoid()
+                   nn.Tanh()
                    ]
         self.decoder = nn.Sequential(*decoder)
 

@@ -65,14 +65,19 @@ def get_data(argsdict):
                                       split='valid',
                                       transform=transforms.ToTensor())
     elif argsdict['dataset']=="CIFAR":
-        train_dataset = datasets.CIFAR10(root='data/',
+        train = datasets.CIFAR10(root='data/',
                                        train=True,
                                        transform=transforms.ToTensor(),
                                        download=True)
 
-        test_dataset = datasets.CIFAR10(root='data/',
+        val = datasets.CIFAR10(root='data/',
                                       train=False,
                                       transform=transforms.ToTensor())
+
+        test = datasets.CIFAR10(root='data/',
+                               train=False,
+                               transform=transforms.ToTensor())
+
     elif argsdict['dataset']=="svhn":
         train = datasets.SVHN('data/', split='train', download=True, transform=transform)
         val = datasets.SVHN('data/', split='train', download=True, transform=transform)
@@ -106,6 +111,6 @@ def visualize_tsne(fake_img, real_img, argsdict, epoch):
                                palette=['purple', 'red'],
                                legend='auto',
                                data=tsne_df)
-    sns_plot.figure.savefig(f"MNIST_IMGS/{argsdict['divergence']}/TSNEVIZ%d.png" % epoch)
+    sns_plot.figure.savefig(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/TSNEVIZ%d.png" % epoch)
     #Closing because I hate matplotlib its a piece of garbage
     plt.close(sns_plot.figure)
