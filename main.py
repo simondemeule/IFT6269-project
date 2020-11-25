@@ -8,24 +8,9 @@ import argparse
 import numpy as np
 import json
 
-#Stuck Values: Reverse KL: 2 and -1 ; 1 and 0
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
-    parser.add_argument('--dataset', type=str, default='svhn',
-                        help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
-    parser.add_argument('--divergence', type=str, default='total_variation',
-                        help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon')
-    parser.add_argument('--Gauss_size', type=int, default='30', help='The size of the Gaussian we generate')
 
-    #Training options
-    parser.add_argument('--batch_size', type=int, default='64', help='batch size for training and testing')
-    parser.add_argument('--hidden_crit_size', type=int, default=32)
-
-    parser.add_argument('--visualize', action='store_true', help='save visualization of the datasets using t-sne')
-    args = parser.parse_args()
-
-    argsdict = args.__dict__
+def run_exp(argsdict):
     # Example of usage of the code provided and recommended hyper parameters for training GANs.
     data_root = './'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -133,3 +118,28 @@ if __name__ == '__main__':
             json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator}, f)
 
 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
+    parser.add_argument('--dataset', type=str, default='svhn',
+                        help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
+    parser.add_argument('--divergence', type=str, default='total_variation',
+                        help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, or all')
+    parser.add_argument('--Gauss_size', type=int, default='30', help='The size of the Gaussian we generate')
+
+    #Training options
+    parser.add_argument('--batch_size', type=int, default='64', help='batch size for training and testing')
+    parser.add_argument('--hidden_crit_size', type=int, default=32)
+
+    parser.add_argument('--visualize', action='store_true', help='save visualization of the datasets using t-sne')
+    args = parser.parse_args()
+
+    argsdict = args.__dict__
+
+    if argsdict['divergence']=='all':
+        divergence=['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon']
+        for dd in divergence:
+            print(dd)
+            argsdict['divergence']=dd
+            run_exp(argsdict)
+    else:
+        run_exp(argsdict)

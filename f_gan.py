@@ -204,7 +204,7 @@ class Divergence:
 
     def D_loss(self, DX_score, DG_score):
         """ Compute batch loss for discriminator using f-divergence metric """
-
+        #This formula can also be used to calculated the total f-divergence
         if self.method == 'total_variation':
             return -(torch.mean(0.5*torch.tanh(DX_score)) \
                         - torch.mean(0.5*torch.tanh(DG_score)))
