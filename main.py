@@ -22,7 +22,7 @@ def run_exp(argsdict):
     beta1 = 0.5
     beta2 = 0.9
     z_dim = 25
-    hidden_dim=(64, 16)
+    hidden_dim=(128, 16)
 
     if argsdict['dataset'] in ['svhn']:
         image_shape=(3, 32, 32)
@@ -116,20 +116,23 @@ def run_exp(argsdict):
         save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5, normalize=True)
         with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
             json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator}, f)
-
-    # Load Losses and create a plot.
-    # Later on for report, it would be good to fix y-dimensions of plot
-    file = open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "r")
-    contents = file.read()
-    losses_dict = ast.literal_eval(contents)
-    file. close()
-    epochs = [i for i in range(n_iter)]   
-    plt.plot(epochs, losses_dict['Gen_Loss'], label='Generator loss')
-    plt.plot(epochs, losses_dict['Discri_Loss'], label='Discriminator loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.title('Evolution of the Generator and Discriminator losses')
-    plt.savefig(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses_evol.png")
+    
+    #Update the losses plot every 5 epochs
+    if epoch%5==0 and epoch!=0:
+        # Load Losses and create a plot.
+        # Later on for report, it would be good to fix y-dimensions of plot
+        file = open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "r")
+        contents = file.read()
+        losses_dict = ast.literal_eval(contents)
+        file. close()
+        epochs = [i for i in range(epoch+1)]   
+        plt.plot(epochs, losses_dict['Gen_Loss'], label='Generator loss', color='red')
+        plt.plot(epochs, losses_dict['Discri_Loss'], label='Discriminator loss', color='green')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.title('Evolution of the Generator and Discriminator losses')
+        plt.savefig(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses_evol.png")
 
 
 if __name__ == '__main__':
