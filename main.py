@@ -117,6 +117,19 @@ def run_exp(argsdict):
         with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
             json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator}, f)
 
+    file = open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "r")
+    contents = file.read()
+    losses_dict = ast.literal_eval(contents)
+    file. close()
+    epochs = [i for i in range(n_iter)]
+                
+    plt.plot(epochs, losses_dict['Gen_Loss'], label='Generator loss')
+    plt.plot(epochs, losses_dict['Discri_Loss'], label='Discriminator loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Evolution of the Generator and Discriminator losses')
+    plt.savefig(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses_evol.png")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
