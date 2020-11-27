@@ -10,6 +10,28 @@ import json
 import matplotlib.pyplot as plt
 import ast
 
+def plot_losses(argsdict, num_epochs, show_plot=1):
+    file = open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "r")
+    contents = file.read()
+    losses_dict = ast.literal_eval(contents)
+    file. close()
+    epochs = [i for i in range(num_epochs)]
+    
+    if show_plot==0:
+        plt.ioff()
+    fig = plt.figure()
+    plt.plot(epochs, losses_dict['Gen_Loss'], label='Generator loss', color='red')
+    plt.plot(epochs, losses_dict['Discri_Loss'], label='Discriminator loss', color='green')
+    plt.legend()
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Evolution of the Generator and Discriminator losses')
+    plt.savefig(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses_evol.png")
+    if show_plot==0:
+        plt.close(fig)
+    else:
+        plt.show()
+
 def run_exp(argsdict):
     # Example of usage of the code provided and recommended hyper parameters for training GANs.
     data_root = './'
@@ -117,22 +139,11 @@ def run_exp(argsdict):
         with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
             json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator}, f)
     
-    #Update the losses plot every 5 epochs
-    if epoch%5==0 and epoch!=0:
-        # Load Losses and create a plot.
-        # Later on for report, it would be good to fix y-dimensions of plot
-        file = open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "r")
-        contents = file.read()
-        losses_dict = ast.literal_eval(contents)
-        file. close()
-        epochs = [i for i in range(epoch+1)]   
-        plt.plot(epochs, losses_dict['Gen_Loss'], label='Generator loss', color='red')
-        plt.plot(epochs, losses_dict['Discri_Loss'], label='Discriminator loss', color='green')
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss')
-        plt.legend()
-        plt.title('Evolution of the Generator and Discriminator losses')
-        plt.savefig(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses_evol.png")
+        #Update the losses plot every 5 epochs
+        if epoch%5==0 and epoch!=0:
+            plot_losses(argsdict, epoch+1, show_plot=0)
+                  
+    plot_losses(argsdict, n_iter)
 
 
 if __name__ == '__main__':
