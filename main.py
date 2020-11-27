@@ -7,8 +7,8 @@ from f_gan import Generator, Critic, Divergence
 import argparse
 import numpy as np
 import json
-
-
+import matplotlib.pyplot as plt
+import ast
 
 def run_exp(argsdict):
     # Example of usage of the code provided and recommended hyper parameters for training GANs.
@@ -117,12 +117,13 @@ def run_exp(argsdict):
         with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
             json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator}, f)
 
+    # Load Losses and create a plot.
+    # Later on for report, it would be good to fix y-dimensions of plot
     file = open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "r")
     contents = file.read()
     losses_dict = ast.literal_eval(contents)
     file. close()
-    epochs = [i for i in range(n_iter)]
-                
+    epochs = [i for i in range(n_iter)]   
     plt.plot(epochs, losses_dict['Gen_Loss'], label='Generator loss')
     plt.plot(epochs, losses_dict['Discri_Loss'], label='Discriminator loss')
     plt.xlabel('Epochs')
