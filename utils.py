@@ -6,6 +6,28 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+def plot_losses(argsdict, num_epochs, show_plot=1):
+    file = open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "r")
+    contents = file.read()
+    losses_dict = ast.literal_eval(contents)
+    file. close()
+    epochs = [i for i in range(num_epochs)]
+    
+    if show_plot==0:
+        plt.ioff()
+    fig = plt.figure()
+    plt.plot(epochs, losses_dict['Gen_Loss'], label='Generator loss', color='red')
+    plt.plot(epochs, losses_dict['Discri_Loss'], label='Discriminator loss', color='green')
+    plt.legend()
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Evolution of the Generator and Discriminator losses')
+    plt.savefig(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses_evol.png")
+    if show_plot==0:
+        plt.close(fig)
+    else:
+        plt.show()
+
 def to_var(x):
     """ Make a tensor cuda-erized and requires gradient """
     return to_cuda(x).requires_grad_()
