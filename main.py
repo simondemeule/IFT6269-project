@@ -2,7 +2,7 @@ import torch
 from torch import optim
 from torch.autograd import Variable
 from torchvision.utils import save_image
-from utils import get_data, visualize_tsne
+from utils import get_data, visualize_tsne, plot_losses
 from f_gan import Generator, Critic, Divergence
 import argparse
 import numpy as np

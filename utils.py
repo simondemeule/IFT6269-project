@@ -5,6 +5,7 @@ from sklearn.manifold import TSNE
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import ast
 
 def plot_losses(argsdict, num_epochs, show_plot=1):
     file = open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "r")
