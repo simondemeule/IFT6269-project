@@ -6,6 +6,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import ast
+import random
 
 def plot_losses(argsdict, num_epochs, show_plot=1):
     file = open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "r")
@@ -119,8 +120,23 @@ def get_data(argsdict):
     return train_iter, val_iter, test_iter
 
 def GaussianGen(argsdict, batch_size, Total):
+    #Todo possibly a more efficient way to do this
+    #TODO Add argument for number of point generated each time
     for i in range(int(Total/batch_size)):
-        bb=torch.randn((batch_size, 1, 1, argsdict['Gauss_size']))
+        bb=torch.zeros((batch_size, 1, 28, 28))
+        #Choose random gaussian
+        for j in range(batch_size):
+            grid=torch.zeros(1, 28, 28)
+            for k in range(200):
+                gaus=random.randint(0, argsdict['number_gaussians']-1)
+                mu=argsdict['mus'][gaus]
+
+                point=torch.round(torch.randn((argsdict['Gauss_size']))+mu)
+                # print(point)
+                point=torch.clip(point, 0, 27)
+                grid[0, int(point[0]), int(point[1])]=1
+            bb[j]=grid
+        # print(bb[0])
         yield bb, torch.ones(2)
 
 
