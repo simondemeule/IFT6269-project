@@ -7,6 +7,7 @@ from f_gan import Generator, Critic, Divergence
 import argparse
 import numpy as np
 import json
+import random
 import matplotlib.pyplot as plt
 import ast
 
@@ -22,7 +23,7 @@ def run_exp(argsdict):
     beta1 = 0.5
     beta2 = 0.9
     z_dim = 25
-    hidden_dim=(128, 16)
+    hidden_dim=(400, 400)
 
     if argsdict['dataset'] in ['svhn']:
         image_shape=(3, 32, 32)
@@ -34,10 +35,17 @@ def run_exp(argsdict):
         image_shape=(1, 28, 28)
         encoding='sigmoid'
     elif argsdict['dataset'] in ['Gaussian']:
-        image_shape=(1, 1, argsdict['Gauss_size'])
+        image_shape=(1, 28, 28)
         encoding='tanh'
-    # elif argsdict['dataset'] in ['Gaussian']:
-    #
+        # Finding random mu
+        mus = []
+        for gaus in range(argsdict['number_gaussians']):
+            mus.append([random.randint(0, 27) for _ in range(argsdict['Gauss_size'])])
+        mus = torch.tensor(mus)
+        argsdict['mus'] = mus
+    elif argsdict['dataset'] in ['MultiGaussian']:
+        image_shape=(1, 28, 28)
+        encoding='None'
 
     # Use the GPU if you have one
     if torch.cuda.is_available():
@@ -52,7 +60,7 @@ def run_exp(argsdict):
     print(device)
     generator = Generator(image_shape, hidden_dim[0], hidden_dim[1], z_dim, encoding).to(device)
     # generator = Generatorsvhn(z_dim, hidden_dim).to(device)
-    critic = Critic(image_shape, 32, 32).to(device)
+    critic = Critic(image_shape, 400, 400).to(device)
     # critic = Criticsvhn(argsdict['hidden_discri_size']).to(device)
 
     #TODO Adding beta seems to make total variation go to 0, why.
@@ -113,6 +121,7 @@ def run_exp(argsdict):
             visualize_tsne(fake_img, real_img, argsdict, epoch)
         with torch.no_grad():
             img=generator(Fix_Noise)
+        # print(img[0])
         save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5, normalize=True)
         with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
             json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator}, f)
@@ -127,10 +136,13 @@ def run_exp(argsdict):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
     parser.add_argument('--dataset', type=str, default='svhn',
-                        help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
+                        help='Dataset you want to use. Options include MNIST, svhn, Gaussian, MultiGaussian and CIFAR')
     parser.add_argument('--divergence', type=str, default='total_variation',
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, or all')
-    parser.add_argument('--Gauss_size', type=int, default='30', help='The size of the Gaussian we generate')
+    parser.add_argument('--Gauss_size', type=int, default='2', help='The size of the Gaussian we generate')
+    parser.add_argument('--number_gaussians', type=int, default='1', help='The number of Gaussian we generate')
+    #TODO VISU 2D
+
 
     #Training options
     parser.add_argument('--batch_size', type=int, default='64', help='batch size for training and testing')
