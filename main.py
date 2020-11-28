@@ -43,9 +43,6 @@ def run_exp(argsdict):
             mus.append([random.randint(0, 27) for _ in range(argsdict['Gauss_size'])])
         mus = torch.tensor(mus)
         argsdict['mus'] = mus
-    elif argsdict['dataset'] in ['MultiGaussian']:
-        image_shape=(1, 28, 28)
-        encoding='None'
 
     # Use the GPU if you have one
     if torch.cuda.is_available():
@@ -136,7 +133,7 @@ def run_exp(argsdict):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
     parser.add_argument('--dataset', type=str, default='svhn',
-                        help='Dataset you want to use. Options include MNIST, svhn, Gaussian, MultiGaussian and CIFAR')
+                        help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
     parser.add_argument('--divergence', type=str, default='total_variation',
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, or all')
     parser.add_argument('--Gauss_size', type=int, default='2', help='The size of the Gaussian we generate')
