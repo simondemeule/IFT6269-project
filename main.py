@@ -17,8 +17,7 @@ def run_exp(argsdict):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     n_iter = 50 # N training iterations
     n_critic_updates = 1 # N critic updates per generator update
-    train_batch_size = 64
-    test_batch_size = 512
+    train_batch_size = argsdict['batch_size']
     lr = 1e-4
     beta1 = 0.5
     beta2 = 0.9
@@ -53,8 +52,9 @@ def run_exp(argsdict):
           of memory. \n You can try setting batch_size=1 to reduce memory usage")
         device = torch.device("cpu")
 
-    train_loader, valid_loader, test_loader = get_data(argsdict)
+    train_loader, valid_loader, test_loader, num_samples = get_data(argsdict)
     print(device)
+    print(num_samples)
     generator = Generator(image_shape, hidden_dim[0], hidden_dim[1], z_dim, encoding).to(device)
     # generator = Generatorsvhn(z_dim, hidden_dim).to(device)
     critic = Critic(image_shape, 400, 400).to(device)
@@ -72,12 +72,18 @@ def run_exp(argsdict):
     losses_Generator=[]
     losses_Discriminator=[]
 
+
+
     # COMPLETE TRAINING PROCEDURE
     for epoch in range(n_iter):
         G_losses, D_losses=[], []
+        if argsdict['visualize']:
+            real_imgs=torch.zeros([num_samples, image_shape[1], image_shape[2]])
         for i_batch, sample_batch in enumerate(train_loader):
             optim_critic.zero_grad()
             real_img, label_batch=sample_batch[0].cuda(), sample_batch[1]
+            if argsdict['visualize']:
+                real_imgs[i_batch*train_batch_size:i_batch*train_batch_size+train_batch_size]=real_img.squeeze(1)
             #fake img
             noise=Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim))).cuda()
             fake_img=generator(noise)
@@ -115,7 +121,9 @@ def run_exp(argsdict):
             #A bit hacky but reset iterators
             train_loader, valid_loader, test_loader = get_data(argsdict)
         if argsdict['visualize']:
-            visualize_tsne(fake_img, real_img, argsdict, epoch)
+            noise = Variable(torch.normal(torch.zeros(500, z_dim), torch.ones(500, z_dim))).cuda()
+            fake_imgs = generator(noise)
+            visualize_tsne(fake_imgs, real_imgs[:500], argsdict, epoch)
         with torch.no_grad():
             img=generator(Fix_Noise)
         # print(img[0])
@@ -132,7 +140,7 @@ def run_exp(argsdict):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
-    parser.add_argument('--dataset', type=str, default='svhn',
+    parser.add_argument('--dataset', type=str, default='MNIST',
                         help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
     parser.add_argument('--divergence', type=str, default='total_variation',
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, or all')

@@ -117,7 +117,7 @@ def get_data(argsdict):
     val_iter = torch.utils.data.DataLoader(val, batch_size=BATCH_SIZE, shuffle=True)
     test_iter = torch.utils.data.DataLoader(test, batch_size=BATCH_SIZE, shuffle=True)
 
-    return train_iter, val_iter, test_iter
+    return train_iter, val_iter, test_iter, len(train)
 
 def GaussianGen(argsdict, batch_size, Total):
     #Todo possibly a more efficient way to do this
