@@ -102,10 +102,15 @@ def run_exp(argsdict):
             if i_batch %n_critic_updates==0:
                 optim_generator.zero_grad()
 
-                gen_imgs=generator(noise)
-                DG_score=critic(gen_imgs)
+                gen_img=generator(noise)
+                if argsdict['modified_loss']:
+                    DX_score = critic(real_img)
+                    DG_score = critic(gen_img)
+                    loss_G = -losses.D_loss(DX_score, DG_score)
+                else:
+                    DG_score=critic(gen_img)
+                    loss_G = losses.G_loss(DG_score)
                 # loss_G=losses.G_loss(DG_score)
-                loss_G = losses.G_loss(DG_score)
                 loss_G.backward()
                 optim_generator.step()
 
@@ -151,6 +156,7 @@ if __name__ == '__main__':
 
     #Training options
     parser.add_argument('--batch_size', type=int, default='64', help='batch size for training and testing')
+    parser.add_argument('--modified_loss', action='store_true', help='use the loss of section 3.2 instead of the original formulation')
     parser.add_argument('--hidden_crit_size', type=int, default=32)
 
     parser.add_argument('--visualize', action='store_true', help='save visualization of the datasets using t-sne')

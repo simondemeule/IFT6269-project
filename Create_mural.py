@@ -7,6 +7,7 @@ div=['total_variation', 'forward_kl', 'hellinger', 'jensen_shannon', 'pearson', 
 # div=['forward_kl', 'hellinger', 'pearson', 'reverse_kl']
 
 folder='MNIST_IMGS'
+suffixe=''
 
 mural=None
 
@@ -21,4 +22,4 @@ for dd in div:
             mural=torch.cat([mural, ff], axis=0)
 
 
-save_image(mural.view(-1, 3, 152, 152), f"MNIST_IMGS/ComparisonOfDivergence.png", nrow=10)
+save_image(mural.view(-1, 3, 152, 152), f"MNIST_IMGS/ComparisonOfDivergence{suffixe}.png", nrow=10)
