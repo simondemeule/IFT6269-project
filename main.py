@@ -66,8 +66,10 @@ def run_exp(argsdict):
     optim_generator = optim.Adam(generator.parameters(), lr=lr)#, betas=(beta1, beta2))
 
     losses=Divergence(argsdict['divergence'])
-
-    Fix_Noise=Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim))).cuda()
+    if argsdict['use_cuda']:
+        Fix_Noise=Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim))).cuda()
+    else:
+        Fix_Noise=Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim)))
 
     losses_Generator=[]
     losses_Discriminator=[]
@@ -81,11 +83,17 @@ def run_exp(argsdict):
             real_imgs=torch.zeros([num_samples, image_shape[1], image_shape[2]])
         for i_batch, sample_batch in enumerate(train_loader):
             optim_critic.zero_grad()
-            real_img, label_batch=sample_batch[0].cuda(), sample_batch[1]
+            if argsdict['use_cuda']:
+                real_img, label_batch=sample_batch[0].cuda(), sample_batch[1]
+            else:
+                real_img, label_batch=sample_batch[0], sample_batch[1]
             if argsdict['visualize']:
                 real_imgs[i_batch*train_batch_size:i_batch*train_batch_size+train_batch_size]=real_img.squeeze(1)
             #fake img
-            noise=Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim))).cuda()
+            if argsdict['use_cuda']:
+                noise=Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim))).cuda()
+            else:
+                noise=Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim)))
             fake_img=generator(noise)
             #Attempting loss
             DX_score=critic(real_img)
@@ -103,8 +111,12 @@ def run_exp(argsdict):
                 optim_generator.zero_grad()
 
                 gen_img=generator(noise)
-                DG_score=critic(gen_img)
-                loss_G = losses.G_loss(DG_score)
+                if argsdict['modified_loss']:
+                    DG_score = critic(gen_img)
+                    loss_G = -losses.G_loss_modified_sec_32(DG_score)
+                else:
+                    DG_score=critic(gen_img)
+                    loss_G = losses.G_loss(DG_score)
                 # loss_G=losses.G_loss(DG_score)
                 loss_G.backward()
                 optim_generator.step()
@@ -121,13 +133,16 @@ def run_exp(argsdict):
             #A bit hacky but reset iterators
             train_loader, valid_loader, test_loader = get_data(argsdict)
         if argsdict['visualize']:
-            noise = Variable(torch.normal(torch.zeros(500, z_dim), torch.ones(500, z_dim))).cuda()
+            if argsdict['use_cuda']:
+                noise = Variable(torch.normal(torch.zeros(500, z_dim), torch.ones(500, z_dim))).cuda()
+            else:
+                noise = Variable(torch.normal(torch.zeros(500, z_dim), torch.ones(500, z_dim)))
             fake_imgs = generator(noise)
             visualize_tsne(fake_imgs, real_imgs[:500], argsdict, epoch)
         with torch.no_grad():
             img=generator(Fix_Noise)
         # print(img[0])
-        save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5, normalize=True)
+        save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID_trick32%d.png" % epoch, nrow=5, normalize=True)
         with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
             json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator}, f)
     
@@ -151,13 +166,14 @@ if __name__ == '__main__':
 
     #Training options
     parser.add_argument('--batch_size', type=int, default='64', help='batch size for training and testing')
+    parser.add_argument('--modified_loss', action='store_true', help='use the loss of section 3.2 instead of the original formulation')
     parser.add_argument('--hidden_crit_size', type=int, default=32)
-
     parser.add_argument('--visualize', action='store_true', help='save visualization of the datasets using t-sne')
+    parser.add_argument('--use_cuda', action='store_true', help='Use gpu')
     args = parser.parse_args()
 
     argsdict = args.__dict__
-
+    argsdict['modified_loss']=True
     if argsdict['divergence']=='all':
         divergence=['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon']
         for dd in divergence:
