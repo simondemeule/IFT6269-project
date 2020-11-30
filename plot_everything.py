@@ -3,8 +3,10 @@ import os
 import matplotlib.pyplot as plt
 import ast
 
+suffixe='new_update'
+
 # Choose dataset
-for dataset in ['MNIST','CIFAR','Gaussian','svhn']:
+for dataset in ['MNIST']:#,'CIFAR','Gaussian','svhn']:
     for is_gen in [0,1]:
         fig = plt.figure()
         plt.ioff()
@@ -28,8 +30,8 @@ for dataset in ['MNIST','CIFAR','Gaussian','svhn']:
         plt.legend()
         if is_gen==0:
             plt.title('Evolution of the different Discriminator losses')
-            plt.savefig(f"{dataset}_IMGS/All_Discriminator_Losses.png")
+            plt.savefig(f"{dataset}_IMGS/All_Discriminator_Losses{suffixe}.png")
         else:
             plt.title('Evolution of the different Generator losses')
-            plt.savefig(f"{dataset}_IMGS/All_Generator_Losses.png")
+            plt.savefig(f"{dataset}_IMGS/All_Generator_Losses{suffixe}.png")
         plt.close(fig)
