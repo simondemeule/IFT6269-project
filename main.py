@@ -73,6 +73,8 @@ def run_exp(argsdict):
 
     losses_Generator=[]
     losses_Discriminator=[]
+    real_statistics=[]
+    fake_statistics=[]
 
 
 
@@ -132,6 +134,8 @@ def run_exp(argsdict):
         print(f"Classified on average {round(np.mean(real_stat), 2)} real examples correctly and {round(np.mean(fake_stat), 2)} fake examples correctly")
         losses_Generator.append(np.mean(G_losses))
         losses_Discriminator.append(np.mean(D_losses))
+        real_statistics.append(np.mean(real_stat))
+        fake_statistics.append(np.mean(fake_stat))
         if argsdict['dataset']=='Gaussian':
             #A bit hacky but reset iterators
             train_loader, valid_loader, test_loader = get_data(argsdict)
@@ -150,7 +154,7 @@ def run_exp(argsdict):
         else:
             save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]),f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5,normalize=True)
         with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
-            json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator}, f)
+            json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator, 'real_stat':real_statistics, 'fake_stat':fake_statistics}, f)
     
         #Update the losses plot every 5 epochs
         if epoch%5==0 and epoch!=0:
