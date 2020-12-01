@@ -198,6 +198,7 @@ class Divergence:
                                'forward_kl',
                                'reverse_kl',
                                'pearson',
+                               'alpha_div',
                                'hellinger',
                                'jensen_shannon'], \
             'Invalid divergence.'
@@ -226,6 +227,11 @@ class Divergence:
             return -(torch.mean(torch.tensor(2.)-(1+torch.exp(-DX_score))) \
                         - torch.mean(-(torch.tensor(2.)-torch.exp(DG_score))))
 
+        elif self.method == 'alpha_div':
+            #for alpha >1 
+            alpha = 1.5
+            return -(torch.mean(DX_score)-torch.mean(1./alpha*(DG_score*(alpha-1.) + 1.)**(alpha/(alpha-1)) -1./alpha ))
+
     def G_loss(self, DG_score):
         """ Compute batch loss for generator using f-divergence metric """
 
@@ -246,27 +252,36 @@ class Divergence:
 
         elif self.method == 'jensen_shannon':
             return -torch.mean(-(torch.tensor(2.)-torch.exp(DG_score)))
+
+        elif self.method == 'alpha_div':
+            # for alpha > 1
+            alpha = 1.5
+            return -torch.mean(1./alpha*(DG_score*(alpha-1.) + 1.)**(alpha/(alpha-1)) -1./alpha )
+
     #modifying the generator loss (trick 3.2) for         
     def G_loss_modified_sec_32(self, DG_score):
             """ Compute batch loss for generator using f-divergence metric """
 
             if self.method == 'total_variation':
-                return torch.mean(0.5*torch.tanh(DG_score))
+                return -torch.mean(0.5*torch.tanh(DG_score))
 
             elif self.method == 'forward_kl':
-                return torch.mean(DG_score)
+                return -torch.mean(DG_score)
 
             elif self.method == 'reverse_kl':
-                return torch.mean(-torch.exp(DG_score))
+                return -torch.mean(-torch.exp(DG_score))
 
             elif self.method == 'pearson':
-                return torch.mean(DG_score)
+                return -torch.mean(DG_score)
 
             elif self.method == 'hellinger':
-                return torch.mean(1-torch.exp(DG_score))
+                return -torch.mean(1-torch.exp(DG_score))
 
             elif self.method == 'jensen_shannon':
-                return torch.mean(torch.tensor(2.)-(1+torch.exp(-DG_score)))
+                return -torch.mean(torch.tensor(2.)-(1+torch.exp(-DG_score)))
+            
+            elif self.method == 'alpha_div':
+                return -torch.mean(torch.tensor(2.)-(1+torch.exp(-DG_score)))
 
 
 class fGANTrainer:
