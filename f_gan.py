@@ -203,6 +203,13 @@ class Divergence:
                                'hellinger',
                                'jensen_shannon'], \
             'Invalid divergence.'
+        if method not in ['total_variation',
+                               'forward_kl',
+                               'reverse_kl',
+                               'pearson',
+                               'hellinger',
+                               'jensen_shannon']:
+            print("Some functions have not been implemented correctly for this divergence and so results may not be reliable. I hope you know what you're doing")
 
     def D_loss(self, DX_score, DG_score):
         """ Compute batch loss for discriminator using f-divergence metric """
@@ -302,6 +309,9 @@ class Divergence:
             thresh=0
 
         elif self.method == 'jensen_shannon':
+            thresh=0
+
+        elif self.method == 'alpha_div':
             thresh=0
         #TODO In the paper its the inverse I think
         predGen = sum([1 if pred > thresh else 0 for pred in DG_score])
