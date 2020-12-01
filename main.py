@@ -113,7 +113,8 @@ def run_exp(argsdict):
                 gen_img=generator(noise)
                 if argsdict['modified_loss']:
                     DG_score = critic(gen_img)
-                    loss_G = -losses.G_loss_modified_sec_32(DG_score)
+                    # We maximize instead of minimizing
+                    loss_G = losses.G_loss_modified_sec_32(DG_score)
                 else:
                     DG_score=critic(gen_img)
                     loss_G = losses.G_loss(DG_score)
@@ -142,7 +143,10 @@ def run_exp(argsdict):
         with torch.no_grad():
             img=generator(Fix_Noise)
         # print(img[0])
-        save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID_trick32%d.png" % epoch, nrow=5, normalize=True)
+        if argsdict['modified_loss']:
+            save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID_trick32%d.png" % epoch, nrow=5, normalize=True)
+        else:
+            save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID_%d.png" % epoch, nrow=5, normalize=True)
         with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
             json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator}, f)
     
@@ -158,7 +162,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='MNIST',
                         help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
     parser.add_argument('--divergence', type=str, default='total_variation',
-                        help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, or all')
+                        help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div or all')
     parser.add_argument('--Gauss_size', type=int, default='2', help='The size of the Gaussian we generate')
     parser.add_argument('--number_gaussians', type=int, default='1', help='The number of Gaussian we generate')
     #TODO VISU 2D
@@ -173,9 +177,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     argsdict = args.__dict__
-    argsdict['modified_loss']=True
+    
+    #argsdict['modified_loss']=False
+    #argsdict['divergence']='alpha_div'
+    #print(argsdict['divergence'])
+
     if argsdict['divergence']=='all':
-        divergence=['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon']
+        divergence=['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon','alpha_div']
         for dd in divergence:
             print(dd)
             argsdict['divergence']=dd
