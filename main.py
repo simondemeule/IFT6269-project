@@ -91,7 +91,8 @@ def run_exp(argsdict):
             DX_score=critic(real_img)
             DG_score=critic(fake_img)
             loss_D=losses.D_loss(DX_score, DG_score)
-
+            acc=losses.RealFake(DG_score, DX_score)
+            print(acc)
             loss_D.backward()
             # D_grad=critic.x[0].weight.grad.detach()
             optim_critic.step()

@@ -34,6 +34,7 @@ import numpy as np
 
 from itertools import product
 from tqdm import tqdm
+from sklearn.metrics import accuracy_score
 
 from utils import *
 
@@ -246,6 +247,34 @@ class Divergence:
 
         elif self.method == 'jensen_shannon':
             return -torch.mean(-(torch.tensor(2.)-torch.exp(DG_score)))
+
+    def RealFake(self, DG_score, DX_score):
+        #Returns the percent of examples that were correctly classified by the discriminator
+        print(DG_score.shape)
+
+        if self.method == 'total_variation':
+            pass
+
+        elif self.method == 'forward_kl':
+            pass
+
+        elif self.method == 'reverse_kl':
+            pass
+
+        elif self.method == 'pearson':
+            pass
+
+        elif self.method == 'hellinger':
+            thresh=0
+
+        elif self.method == 'jensen_shannon':
+            pass
+
+        predGen = sum([1 if pred < thresh else 0 for pred in DG_score])
+        predReal = sum([0 if pred < thresh else 1 for pred in DX_score])
+        GenLen=DG_score.shape[0]
+        RealLen=DX_score.shape[0]
+        return float(predGen)/GenLen, float(predReal)/RealLen
 
 
 class fGANTrainer:
