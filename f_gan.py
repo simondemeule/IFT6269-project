@@ -113,6 +113,12 @@ class Critic(nn.Module):
              nn.ELU(inplace=True),
              nn.Linear(hidden_dim, hidden_dim2),
              nn.ELU(inplace=True),
+             nn.Linear(hidden_dim2, hidden_dim2),
+             nn.ELU(inplace=True),
+             nn.Linear(hidden_dim2, hidden_dim2),
+             nn.ELU(inplace=True),
+             nn.Linear(hidden_dim2, hidden_dim2),
+             nn.ELU(inplace=True),
              nn.Linear(hidden_dim2, 1)]
         #TODO: I'm very unsure as to wether we should have a sigmoid at the end of the critic. The
         #OG implementation had one but the paper says "The final activation function is determined by the divergence"
@@ -126,31 +132,31 @@ class Critic(nn.Module):
         x = self.x(x)
         return x
 #
-# class Criticsvhn(nn.Module):
-#     def __init__(self, image_size, h_dim=64):
-#         super(Criticsvhn, self).__init__()
-#
-#         x = [nn.Conv2d(3, h_dim, 4, 2, 1),
-#              nn.LeakyReLU(0.2, inplace=True),
-#              nn.Conv2d(h_dim, 2*h_dim, 4, 2, 1),
-#              nn.LeakyReLU(0.2, inplace=True),
-#              nn.Conv2d(2*h_dim, 4*h_dim, 4, 2, 1),
-#              nn.LeakyReLU(0.2, inplace=True),
-#              nn.Conv2d(4*h_dim, 1, 4, 1, 0)]
-#
-#         self.x = nn.Sequential(*x)
-#         self.linear = nn.Linear(image_size, h_dim)
-#         self.discriminate = nn.Linear(h_dim, 1)
-#         self.final=nn.Linear(2,1)
-#
-#     def forward(self, x):
-#         cnn=self.x(x).squeeze()
-#         x = to_cuda(x.view(x.shape[0], -1))
-#         # print(self.linear)
-#         # print(x.shape)
-#         activated = F.relu(self.linear(x))
-#         discrimination = self.discriminate(activated)
-#         return torch.sigmoid(self.final(torch.cat([discrimination, cnn.unsqueeze(1)], dim=-1)))
+class Criticsvhn(nn.Module):
+    def __init__(self, image_size, h_dim=64):
+        super(Criticsvhn, self).__init__()
+
+        x = [nn.Conv2d(3, h_dim, 4, 2, 1),
+             nn.LeakyReLU(0.2, inplace=True),
+             nn.Conv2d(h_dim, 2*h_dim, 4, 2, 1),
+             nn.LeakyReLU(0.2, inplace=True),
+             nn.Conv2d(2*h_dim, 4*h_dim, 4, 2, 1),
+             nn.LeakyReLU(0.2, inplace=True),
+             nn.Conv2d(4*h_dim, 1, 4, 1, 0)]
+
+        self.x = nn.Sequential(*x)
+        self.linear = nn.Linear(image_size, h_dim)
+        self.discriminate = nn.Linear(h_dim, 1)
+        self.final=nn.Linear(2,1)
+
+    def forward(self, x):
+        cnn=self.x(x).squeeze()
+        x = to_cuda(x.view(x.shape[0], -1))
+        # print(self.linear)
+        # print(x.shape)
+        activated = F.relu(self.linear(x))
+        discrimination = self.discriminate(activated)
+        return torch.sigmoid(self.final(torch.cat([discrimination, cnn.unsqueeze(1)], dim=-1)))
 
 
 class Generatorsvhn(nn.Module):
@@ -271,8 +277,6 @@ class Divergence:
 
     def RealFake(self, DG_score, DX_score):
         #Returns the percent of examples that were correctly classified by the discriminator
-        print(DG_score.shape)
-
         if self.method == 'total_variation':
             pass
 
