@@ -118,7 +118,8 @@ def run_exp(argsdict):
                 gen_img=generator(noise)
                 if argsdict['modified_loss']:
                     DG_score = critic(gen_img)
-                    loss_G = -losses.G_loss_modified_sec_32(DG_score)
+                    # We maximize instead of minimizing
+                    loss_G = losses.G_loss_modified_sec_32(DG_score)
                 else:
                     DG_score=critic(gen_img)
                     loss_G = losses.G_loss(DG_score)
@@ -168,7 +169,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='MNIST',
                         help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
     parser.add_argument('--divergence', type=str, default='total_variation',
-                        help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, or all')
+                        help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div or all')
     parser.add_argument('--Gauss_size', type=int, default='2', help='The size of the Gaussian we generate')
     parser.add_argument('--number_gaussians', type=int, default='1', help='The number of Gaussian we generate')
 
@@ -182,7 +183,7 @@ if __name__ == '__main__':
 
     argsdict = args.__dict__
     if argsdict['divergence']=='all':
-        divergence=['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon']
+        divergence=['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon','alpha_div']
         for dd in divergence:
             print(dd)
             argsdict['divergence']=dd
