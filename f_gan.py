@@ -113,12 +113,6 @@ class Critic(nn.Module):
              nn.ELU(inplace=True),
              nn.Linear(hidden_dim, hidden_dim2),
              nn.ELU(inplace=True),
-             nn.Linear(hidden_dim2, hidden_dim2),
-             nn.ELU(inplace=True),
-             nn.Linear(hidden_dim2, hidden_dim2),
-             nn.ELU(inplace=True),
-             nn.Linear(hidden_dim2, hidden_dim2),
-             nn.ELU(inplace=True),
              nn.Linear(hidden_dim2, 1)]
         #TODO: I'm very unsure as to wether we should have a sigmoid at the end of the critic. The
         #OG implementation had one but the paper says "The final activation function is determined by the divergence"
@@ -278,25 +272,25 @@ class Divergence:
     def RealFake(self, DG_score, DX_score):
         #Returns the percent of examples that were correctly classified by the discriminator
         if self.method == 'total_variation':
-            pass
+            thresh=0
 
         elif self.method == 'forward_kl':
-            pass
+            thresh=1
 
         elif self.method == 'reverse_kl':
-            pass
+            thresh=-1
 
         elif self.method == 'pearson':
-            pass
+            thresh=0
 
         elif self.method == 'hellinger':
             thresh=0
 
         elif self.method == 'jensen_shannon':
-            pass
-
-        predGen = sum([1 if pred < thresh else 0 for pred in DG_score])
-        predReal = sum([0 if pred < thresh else 1 for pred in DX_score])
+            thresh=0
+        #TODO In the paper its the inverse I think
+        predGen = sum([1 if pred > thresh else 0 for pred in DG_score])
+        predReal = sum([0 if pred > thresh else 1 for pred in DX_score])
         GenLen=DG_score.shape[0]
         RealLen=DX_score.shape[0]
         return float(predGen)/GenLen, float(predReal)/RealLen

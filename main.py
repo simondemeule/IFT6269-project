@@ -114,16 +114,16 @@ def run_exp(argsdict):
                 optim_generator.zero_grad()
 
                 gen_img=generator(noise)
-                # if argsdict['modified_loss']:
-                #     DG_score = critic(gen_img)
-                #     loss_G = -losses.G_loss_modified_sec_32(DG_score)
-                # else:
-                #     DG_score=critic(gen_img)
-                #     loss_G = losses.G_loss(DG_score)
-                # loss_G.backward()
-                # optim_generator.step()
+                if argsdict['modified_loss']:
+                    DG_score = critic(gen_img)
+                    loss_G = -losses.G_loss_modified_sec_32(DG_score)
+                else:
+                    DG_score=critic(gen_img)
+                    loss_G = losses.G_loss(DG_score)
+                loss_G.backward()
+                optim_generator.step()
 
-            # G_losses.append(loss_G.item())
+            G_losses.append(loss_G.item())
         # print(G_losses)
         # print(D_losses)
         # print(D_grad)
@@ -146,10 +146,8 @@ def run_exp(argsdict):
             img=generator(Fix_Noise)
         #Saving Images
         if argsdict['modified_loss']:
-            print("BANANA")
             save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID_trick32%d.png" % epoch, nrow=5, normalize=True)
         else:
-            print("HOLA")
             save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]),f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5,normalize=True)
         with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
             json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator}, f)
