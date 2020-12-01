@@ -79,6 +79,7 @@ def run_exp(argsdict):
     # COMPLETE TRAINING PROCEDURE
     for epoch in range(n_iter):
         G_losses, D_losses=[], []
+        real_stat, fake_stat=[], []
         if argsdict['visualize']:
             real_imgs=torch.zeros([num_samples, image_shape[1], image_shape[2]])
         for i_batch, sample_batch in enumerate(train_loader):
@@ -99,7 +100,9 @@ def run_exp(argsdict):
             DX_score=critic(real_img)
             DG_score=critic(fake_img)
             loss_D=losses.D_loss(DX_score, DG_score)
-
+            fake, real=losses.RealFake(DG_score, DX_score)
+            real_stat.append(real)
+            fake_stat.append(fake)
             loss_D.backward()
             # D_grad=critic.x[0].weight.grad.detach()
             optim_critic.step()
@@ -118,7 +121,6 @@ def run_exp(argsdict):
                 else:
                     DG_score=critic(gen_img)
                     loss_G = losses.G_loss(DG_score)
-                # loss_G=losses.G_loss(DG_score)
                 loss_G.backward()
                 optim_generator.step()
 
@@ -128,6 +130,7 @@ def run_exp(argsdict):
         # print(D_grad)
         print("Epoch[%d/%d], G Loss: %.4f, D Loss: %.4f"
               % (epoch, n_iter, np.mean(G_losses), np.mean(D_losses)))
+        print(f"Classified on average {round(np.mean(real_stat), 2)} real examples correctly and {round(np.mean(fake_stat), 2)} fake examples correctly")
         losses_Generator.append(np.mean(G_losses))
         losses_Discriminator.append(np.mean(D_losses))
         if argsdict['dataset']=='Gaussian':
@@ -142,11 +145,11 @@ def run_exp(argsdict):
             visualize_tsne(fake_imgs, real_imgs[:500], argsdict, epoch)
         with torch.no_grad():
             img=generator(Fix_Noise)
-        # print(img[0])
+        #Saving Images
         if argsdict['modified_loss']:
             save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID_trick32%d.png" % epoch, nrow=5, normalize=True)
         else:
-            save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID_%d.png" % epoch, nrow=5, normalize=True)
+            save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]),f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5,normalize=True)
         with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
             json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator}, f)
     
@@ -165,8 +168,6 @@ if __name__ == '__main__':
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div or all')
     parser.add_argument('--Gauss_size', type=int, default='2', help='The size of the Gaussian we generate')
     parser.add_argument('--number_gaussians', type=int, default='1', help='The number of Gaussian we generate')
-    #TODO VISU 2D
-
 
     #Training options
     parser.add_argument('--batch_size', type=int, default='64', help='batch size for training and testing')
@@ -177,11 +178,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     argsdict = args.__dict__
-    
-    #argsdict['modified_loss']=False
-    #argsdict['divergence']='alpha_div'
-    #print(argsdict['divergence'])
-
     if argsdict['divergence']=='all':
         divergence=['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon','alpha_div']
         for dd in divergence:

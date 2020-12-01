@@ -34,6 +34,7 @@ import numpy as np
 
 from itertools import product
 from tqdm import tqdm
+from sklearn.metrics import accuracy_score
 
 from utils import *
 
@@ -125,31 +126,31 @@ class Critic(nn.Module):
         x = self.x(x)
         return x
 #
-# class Criticsvhn(nn.Module):
-#     def __init__(self, image_size, h_dim=64):
-#         super(Criticsvhn, self).__init__()
-#
-#         x = [nn.Conv2d(3, h_dim, 4, 2, 1),
-#              nn.LeakyReLU(0.2, inplace=True),
-#              nn.Conv2d(h_dim, 2*h_dim, 4, 2, 1),
-#              nn.LeakyReLU(0.2, inplace=True),
-#              nn.Conv2d(2*h_dim, 4*h_dim, 4, 2, 1),
-#              nn.LeakyReLU(0.2, inplace=True),
-#              nn.Conv2d(4*h_dim, 1, 4, 1, 0)]
-#
-#         self.x = nn.Sequential(*x)
-#         self.linear = nn.Linear(image_size, h_dim)
-#         self.discriminate = nn.Linear(h_dim, 1)
-#         self.final=nn.Linear(2,1)
-#
-#     def forward(self, x):
-#         cnn=self.x(x).squeeze()
-#         x = to_cuda(x.view(x.shape[0], -1))
-#         # print(self.linear)
-#         # print(x.shape)
-#         activated = F.relu(self.linear(x))
-#         discrimination = self.discriminate(activated)
-#         return torch.sigmoid(self.final(torch.cat([discrimination, cnn.unsqueeze(1)], dim=-1)))
+class Criticsvhn(nn.Module):
+    def __init__(self, image_size, h_dim=64):
+        super(Criticsvhn, self).__init__()
+
+        x = [nn.Conv2d(3, h_dim, 4, 2, 1),
+             nn.LeakyReLU(0.2, inplace=True),
+             nn.Conv2d(h_dim, 2*h_dim, 4, 2, 1),
+             nn.LeakyReLU(0.2, inplace=True),
+             nn.Conv2d(2*h_dim, 4*h_dim, 4, 2, 1),
+             nn.LeakyReLU(0.2, inplace=True),
+             nn.Conv2d(4*h_dim, 1, 4, 1, 0)]
+
+        self.x = nn.Sequential(*x)
+        self.linear = nn.Linear(image_size, h_dim)
+        self.discriminate = nn.Linear(h_dim, 1)
+        self.final=nn.Linear(2,1)
+
+    def forward(self, x):
+        cnn=self.x(x).squeeze()
+        x = to_cuda(x.view(x.shape[0], -1))
+        # print(self.linear)
+        # print(x.shape)
+        activated = F.relu(self.linear(x))
+        discrimination = self.discriminate(activated)
+        return torch.sigmoid(self.final(torch.cat([discrimination, cnn.unsqueeze(1)], dim=-1)))
 
 
 class Generatorsvhn(nn.Module):
@@ -282,6 +283,32 @@ class Divergence:
             
             elif self.method == 'alpha_div':
                 return -torch.mean(torch.tensor(2.)-(1+torch.exp(-DG_score)))
+
+    def RealFake(self, DG_score, DX_score):
+        #Returns the percent of examples that were correctly classified by the discriminator
+        if self.method == 'total_variation':
+            thresh=0
+
+        elif self.method == 'forward_kl':
+            thresh=1
+
+        elif self.method == 'reverse_kl':
+            thresh=-1
+
+        elif self.method == 'pearson':
+            thresh=0
+
+        elif self.method == 'hellinger':
+            thresh=0
+
+        elif self.method == 'jensen_shannon':
+            thresh=0
+        #TODO In the paper its the inverse I think
+        predGen = sum([1 if pred > thresh else 0 for pred in DG_score])
+        predReal = sum([0 if pred > thresh else 1 for pred in DX_score])
+        GenLen=DG_score.shape[0]
+        RealLen=DX_score.shape[0]
+        return float(predGen)/GenLen, float(predReal)/RealLen
 
 
 class fGANTrainer:
