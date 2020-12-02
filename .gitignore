@@ -1,0 +1,5 @@
+env/**
+.vscode
+workspace.code-workspace
+.DS_Store
+data/**
