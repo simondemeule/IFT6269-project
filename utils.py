@@ -107,10 +107,10 @@ def get_data(argsdict):
         val = datasets.SVHN('data/', split='train', download=True, transform=transform)
         test = datasets.SVHN('data/', split='test', download=True, transform=transform)
     elif argsdict['dataset']=='Gaussian':
-        train_iter=GaussianGen(argsdict, BATCH_SIZE, 1000)
-        val_iter=GaussianGen(argsdict, BATCH_SIZE, 1000)
-        test_iter=GaussianGen(argsdict, BATCH_SIZE, 1000)
-        return train_iter, val_iter, test_iter
+        train_iter=GaussianGen(argsdict, BATCH_SIZE, 100000)
+        val_iter=GaussianGen(argsdict, BATCH_SIZE, 100000)
+        test_iter=GaussianGen(argsdict, BATCH_SIZE, 100000)
+        return train_iter, val_iter, test_iter, 100000
 
 
     train_iter = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
@@ -123,19 +123,14 @@ def GaussianGen(argsdict, batch_size, Total):
     #Todo possibly a more efficient way to do this
     #TODO Add argument for number of point generated each time
     for i in range(int(Total/batch_size)):
-        bb=torch.zeros((batch_size, 1, 28, 28))
+        bb=torch.zeros((batch_size, argsdict['Gauss_size']))
         #Choose random gaussian
         for j in range(batch_size):
-            grid=torch.zeros(1, 28, 28)
-            for k in range(200):
-                gaus=random.randint(0, argsdict['number_gaussians']-1)
-                mu=argsdict['mus'][gaus]
-
-                point=torch.round(torch.randn((argsdict['Gauss_size']))+mu)
-                # print(point)
-                point=torch.clip(point, 0, 27)
-                grid[0, int(point[0]), int(point[1])]=1
-            bb[j]=grid
+            gaus=random.randint(0, argsdict['number_gaussians']-1)
+            mu=argsdict['mus'][gaus]
+            sigma=argsdict['sigma'][gaus]
+            point=sigma*torch.randn((argsdict['Gauss_size']))+mu
+            bb[j]=point
         # print(bb[0])
         yield bb, torch.ones(2)
 

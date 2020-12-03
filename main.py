@@ -15,13 +15,13 @@ def run_exp(argsdict):
     # Example of usage of the code provided and recommended hyper parameters for training GANs.
     data_root = './'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    n_iter = 50 # N training iterations
+    n_iter = 30 # N training iterations
     n_critic_updates = 1 # N critic updates per generator update
     train_batch_size = argsdict['batch_size']
     lr = 1e-4
     beta1 = 0.5
     beta2 = 0.9
-    z_dim = 25
+    z_dim = argsdict['Gauss_size']
     hidden_dim=(400, 400)
 
     if argsdict['dataset'] in ['svhn']:
@@ -38,10 +38,14 @@ def run_exp(argsdict):
         encoding='tanh'
         # Finding random mu
         mus = []
+        sigma=[]
         for gaus in range(argsdict['number_gaussians']):
-            mus.append([random.randint(0, 27) for _ in range(argsdict['Gauss_size'])])
+            mus.append([random.random() for _ in range(argsdict['Gauss_size'])])
+            sigma.append([random.random() for _ in range(argsdict['Gauss_size'])])
         mus = torch.tensor(mus)
+        sigma=torch.tensor(sigma)
         argsdict['mus'] = mus
+        argsdict['sigma']=sigma
 
     # Use the GPU if you have one
     if torch.cuda.is_available():
@@ -55,9 +59,9 @@ def run_exp(argsdict):
     train_loader, valid_loader, test_loader, num_samples = get_data(argsdict)
     print(device)
     print(num_samples)
-    generator = Generator(image_shape, hidden_dim[0], hidden_dim[1], z_dim, encoding).to(device)
+    generator = Generator(image_shape, hidden_dim[0], hidden_dim[1], z_dim, encoding, argsdict['Gauss_size']).to(device)
     # generator = Generatorsvhn(z_dim, hidden_dim).to(device)
-    critic = Critic(image_shape, 400, 400).to(device)
+    critic = Critic(argsdict['Gauss_size'], 400, 400).to(device)
     # critic = Criticsvhn(argsdict['hidden_discri_size']).to(device)
 
     #TODO Adding beta seems to make total variation go to 0, why.
@@ -97,7 +101,7 @@ def run_exp(argsdict):
                 noise=Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim))).cuda()
             else:
                 noise=Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim)))
-            fake_img=generator(noise)
+            fake_img, mu, sigma=generator(noise)
             #Attempting loss
             DX_score=critic(real_img)
             DG_score=critic(fake_img)
@@ -109,37 +113,45 @@ def run_exp(argsdict):
             # D_grad=critic.x[0].weight.grad.detach()
             optim_critic.step()
 
+            # Clip weights of discriminator
+            # for p in critic.parameters():
+            #     p.data.clamp_(-0.1, 0.1)
+
 
             #train the generator ever n_critic iterations
             D_losses.append(loss_D.item())
-            if i_batch %n_critic_updates==0:
-                optim_generator.zero_grad()
-
-                gen_img=generator(noise)
-                if argsdict['modified_loss']:
-                    DG_score = critic(gen_img)
-                    # We maximize instead of minimizing
-                    loss_G = losses.G_loss_modified_sec_32(DG_score)
-                else:
-                    DG_score=critic(gen_img)
-                    loss_G = losses.G_loss(DG_score)
-                loss_G.backward()
-                optim_generator.step()
-
-            G_losses.append(loss_G.item())
+            # if i_batch %n_critic_updates==0:
+            #     optim_generator.zero_grad()
+            #
+            #     gen_img, mu, sigma=generator(noise)
+            #     if argsdict['modified_loss']:
+            #         DG_score = critic(gen_img)
+            #         # We maximize instead of minimizing
+            #         loss_G = losses.G_loss_modified_sec_32(DG_score)
+            #     else:
+            #         DG_score=critic(gen_img)
+            #         loss_G = losses.G_loss(DG_score)
+            #     loss_G.backward()
+            #     optim_generator.step()
+            #     torch.clip(generator.sigma, 0)
+            #
+            # G_losses.append(loss_G.item())
         # print(G_losses)
         # print(D_losses)
         # print(D_grad)
         print("Epoch[%d/%d], G Loss: %.4f, D Loss: %.4f"
               % (epoch, n_iter, np.mean(G_losses), np.mean(D_losses)))
         print(f"Classified on average {round(np.mean(real_stat), 2)} real examples correctly and {round(np.mean(fake_stat), 2)} fake examples correctly")
+        print(argsdict['mus'], argsdict['sigma'])
+        print(generator.mu, generator.sigma)
+        losses.AnalyticDiv(generator.mu, argsdict['mus'], generator.sigma, argsdict['sigma'])
         losses_Generator.append(np.mean(G_losses))
         losses_Discriminator.append(np.mean(D_losses))
         real_statistics.append(np.mean(real_stat))
         fake_statistics.append(np.mean(fake_stat))
         if argsdict['dataset']=='Gaussian':
             #A bit hacky but reset iterators
-            train_loader, valid_loader, test_loader = get_data(argsdict)
+            train_loader, valid_loader, test_loader, num_samples = get_data(argsdict)
         if argsdict['visualize']:
             if argsdict['use_cuda']:
                 noise = Variable(torch.normal(torch.zeros(500, z_dim), torch.ones(500, z_dim))).cuda()
@@ -150,23 +162,23 @@ def run_exp(argsdict):
         with torch.no_grad():
             img=generator(Fix_Noise)
         #Saving Images
-        if argsdict['modified_loss']:
-            save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID_trick32%d.png" % epoch, nrow=5, normalize=True)
-        else:
-            save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]),f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5,normalize=True)
-        with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
-            json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator, 'real_stat':real_statistics, 'fake_stat':fake_statistics}, f)
+        # if argsdict['modified_loss']:
+        #     save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID_trick32%d.png" % epoch, nrow=5, normalize=True)
+        # else:
+        #     save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]),f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5,normalize=True)
+        # with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
+        #     json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator, 'real_stat':real_statistics, 'fake_stat':fake_statistics}, f)
     
         #Update the losses plot every 5 epochs
-        if epoch%5==0 and epoch!=0:
-            plot_losses(argsdict, epoch+1, show_plot=0)
+        # if epoch%5==0 and epoch!=0:
+        #     plot_losses(argsdict, epoch+1, show_plot=0)
                   
     plot_losses(argsdict, n_iter)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
-    parser.add_argument('--dataset', type=str, default='MNIST',
+    parser.add_argument('--dataset', type=str, default='Gaussian',
                         help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
     parser.add_argument('--divergence', type=str, default='total_variation',
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div or all')

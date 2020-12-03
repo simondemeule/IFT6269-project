@@ -73,33 +73,79 @@ from utils import *
 #         return discrimination
 
 #TODO Generate with these for MNIST
+#
+# class Generator(nn.Module):
+#     """ Generator. Input is noise, output is a generated image.
+#     """
+#     def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding):
+#         super().__init__()
+#         self.image_size=image_size
+#         x = [nn.Linear(z_dim, hidden_dim),
+#              nn.BatchNorm1d(hidden_dim),
+#              nn.ReLU(inplace=True),
+#              nn.Linear(hidden_dim, hidden_dim2),
+#              nn.BatchNorm1d(hidden_dim2),
+#              nn.ReLU(inplace=True),
+#              nn.Linear(hidden_dim2, image_size[0]*image_size[1]*image_size[2])]
+#
+#         self.x = nn.Sequential(*x)
+#         self.encoding=encoding
+#
+#     def forward(self, x):
+#         x=to_cuda(x.view(x.shape[0],-1))
+#         x=self.x(x)
+#         if self.encoding=='tanh':
+#             x = torch.tanh(x)
+#         elif self.encoding=='sigmoid':
+#             x = torch.sigmoid(x)
+#         x.reshape(x.shape[0], self.image_size[0],self.image_size[1],self.image_size[2])
+#         return x
 
 class Generator(nn.Module):
     """ Generator. Input is noise, output is a generated image.
     """
-    def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding):
+    def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding, gauss_dim):
         super().__init__()
         self.image_size=image_size
-        x = [nn.Linear(z_dim, hidden_dim2),
-             nn.BatchNorm1d(hidden_dim2),
-             nn.ReLU(inplace=True),
-             # nn.Linear(hidden_dim, hidden_dim2),
-             # nn.BatchNorm1d(hidden_dim2),
-             # nn.ReLU(inplace=True),
-             nn.Linear(hidden_dim2, image_size[0]*image_size[1]*image_size[2])]
-
-        self.x = nn.Sequential(*x)
-        self.encoding=encoding
+        self.mu=nn.Parameter(torch.randn(gauss_dim))
+        self.sigma=nn.Parameter(torch.abs(torch.randn(gauss_dim)))
+        # self.param=nn.ParameterList(self.mu, self.sigma)
 
     def forward(self, x):
+        # print(x.shape)
         x=to_cuda(x.view(x.shape[0],-1))
-        x=self.x(x)
-        if self.encoding=='tanh':
-            x = torch.tanh(x)
-        elif self.encoding=='sigmoid':
-            x = torch.sigmoid(x)
-        x.reshape(x.shape[0], self.image_size[0],self.image_size[1],self.image_size[2])
-        return x
+        # print(x.shape)
+        # print(self.sigma.unsqueeze(0).repeat(x.shape[0], 1).shape)
+        x=x*self.sigma.unsqueeze(0).repeat(x.shape[0], 1)+self.mu
+        x.reshape(x.shape[0], self.image_size[0], -1)
+        return x, self.mu, self.sigma
+
+
+
+# class Generator(nn.Module):
+#     def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding):
+#         super(Generator, self).__init__()
+#         h_dim=hidden_dim
+#         decoder = [nn.ConvTranspose2d(z_dim, 4*h_dim, 4, 1, 0),
+#                    nn.BatchNorm2d(4*h_dim),
+#                    nn.ReLU(True),
+#                    nn.ConvTranspose2d(4*h_dim, 2*h_dim, 4, 2, 1),
+#                    nn.BatchNorm2d(2*h_dim),
+#                    nn.ReLU(True),
+#                    nn.ConvTranspose2d(2*h_dim, h_dim, 3, 2, 1),
+#                    nn.BatchNorm2d(h_dim),
+#                    nn.ReLU(True),
+#                    nn.ConvTranspose2d(h_dim, 1, 2, 2, 1),
+#                    nn.Sigmoid()
+#                    ]
+#         self.decoder = nn.Sequential(*decoder)
+#
+#     def forward(self, z):
+#         z=to_cuda(z)
+#         img=self.decoder(z.view(z.shape[0], z.shape[1], 1, 1))
+#         # print(img.shape)
+#         return self.decoder(z.view(z.shape[0], z.shape[1], 1, 1))
+
 
 #
 class Critic(nn.Module):
@@ -109,11 +155,10 @@ class Critic(nn.Module):
     def __init__(self, image_size, hidden_dim, hidden_dim2):
         super().__init__()
         self.image_size = image_size
-        x = [nn.Linear(image_size[0]*image_size[1]*image_size[2], hidden_dim),
-             nn.ELU(inplace=True),
-             nn.Linear(hidden_dim, hidden_dim2),
-             nn.ELU(inplace=True),
-             nn.Linear(hidden_dim2, 1)]
+        x = [nn.Linear(image_size, 64),
+             nn.Tanh(),
+             nn.Linear(64, 1),
+             nn.Tanh()]
         #TODO: I'm very unsure as to wether we should have a sigmoid at the end of the critic. The
         #OG implementation had one but the paper says "The final activation function is determined by the divergence"
         #So to check.
@@ -238,7 +283,7 @@ class Divergence:
         elif self.method == 'alpha_div':
             #for alpha >1 
             alpha = 1.5
-            return -(torch.mean(DX_score)-torch.mean(1./alpha*(DG_score*(alpha-1.) + 1.)**(alpha/(alpha-1)) -1./alpha ))
+            return -(torch.mean(DX_score)-torch.mean((1./alpha)*(DG_score*(alpha-1.) + 1.)**(alpha/(alpha-1)) -1./alpha ))
 
     def G_loss(self, DG_score):
         """ Compute batch loss for generator using f-divergence metric """
@@ -319,6 +364,37 @@ class Divergence:
         GenLen=DG_score.shape[0]
         RealLen=DX_score.shape[0]
         return float(predGen)/GenLen, float(predReal)/RealLen
+
+    def AnalyticDiv(self, muq, mup, sigq, sigp, ):
+        """Calculate the analytical divergence between p and q for a diagonal gaussian"""
+
+        #TestTensor
+        # muq=torch.ones(2)
+        # mup=torch.ones(2)
+        # sigq=torch.ones(2)
+        # sigp=torch.ones(2)
+
+        sigq=to_cuda(sigq.detach())
+        sigp=to_cuda(sigp.detach())
+        mup=to_cuda(mup.detach())
+        muq=to_cuda(muq.detach())
+        dim=mup.shape[1]
+        sigq, muq, sigp, mup=sigq.unsqueeze(0), muq.unsqueeze(0), sigp, mup
+        # print(mup.shape, muq.shape)
+        # print(sigq.shape, sigp.shape)
+        if self.method== "forward_kl":
+            div=0
+            div+=torch.sum(torch.log(sigq))
+            # print(sigq)
+            # print(div)
+            div-=torch.sum(torch.log(sigp.float()))
+            div+=torch.sum(sigp/sigq)
+            # print(torch.matmul((muq-mup), torch.diag(sigq.view(dim))).shape)
+            # print((muq-mup).T)
+            div+=torch.matmul(torch.matmul((muq-mup), torch.diag(sigq.view(dim))), (muq-mup).T)[0, 0]
+            div-=sigq.shape[0]
+            print(0.5*div)
+            return 0.5*div
 
 
 class fGANTrainer:
