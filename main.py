@@ -10,6 +10,37 @@ import json
 import random
 import matplotlib.pyplot as plt
 import ast
+import itertools
+
+class DivergenceData:
+    def __init__(self, name):
+        self.name = name
+        self.divergence = Divergence(name)
+
+        self.current_gen = None
+        self.current_dis = None
+        self.log_batch_gen = []
+        self.log_batch_dis = []
+        self.log_epoch_gen = []
+        self.log_epoch_dis = []
+
+        self.current_real = None
+        self.current_fake = None
+        self.log_batch_real = []
+        self.log_batch_fake = []
+        self.log_epoch_real = []
+        self.log_epoch_fake = []
+
+    def log_batch_to_epoch(self):
+        self.log_epoch_gen.append(np.mean(self.log_batch_gen))
+        self.log_epoch_dis.append(np.mean(self.log_batch_dis))
+        self.log_batch_gen = []
+        self.log_batch_dis = []
+
+        self.log_epoch_real.append(np.mean(self.log_batch_real))
+        self.log_epoch_fake.append(np.mean(self.log_batch_fake))
+        self.log_batch_real = []
+        self.log_batch_fake = []
 
 def run_exp(argsdict):
     # Example of usage of the code provided and recommended hyper parameters for training GANs.
@@ -48,13 +79,12 @@ def run_exp(argsdict):
         print("Using the GPU")
         device = torch.device("cuda")
     else:
-        print("WARNING: You are about to run on cpu, and this will likely run out \
-          of memory. \n You can try setting batch_size=1 to reduce memory usage")
+        print("WARNING: You are about to run on cpu, and this will likely run out of memory.\nYou can try setting batch_size=1 to reduce memory usage")
         device = torch.device("cpu")
 
     train_loader, valid_loader, test_loader, num_samples = get_data(argsdict)
-    print(device)
-    print(num_samples)
+    print(f"Device: {device}")
+    print(f"Number of samples: {num_samples}")
     generator = Generator(image_shape, hidden_dim[0], hidden_dim[1], z_dim, encoding).to(device)
     # generator = Generatorsvhn(z_dim, hidden_dim).to(device)
     critic = Critic(image_shape, 400, 400).to(device)
@@ -65,81 +95,115 @@ def run_exp(argsdict):
     optim_critic = optim.Adam(critic.parameters(), lr=lr)#, betas=(beta1, beta2))
     optim_generator = optim.Adam(generator.parameters(), lr=lr)#, betas=(beta1, beta2))
 
-    losses=Divergence(argsdict['divergence'])
     if argsdict['use_cuda']:
         Fix_Noise=Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim))).cuda()
     else:
         Fix_Noise=Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim)))
 
-    losses_Generator=[]
-    losses_Discriminator=[]
-    real_statistics=[]
-    fake_statistics=[]
+    # divergence used for training
+    training = DivergenceData(argsdict['divergence'])
 
-
+    # other divergences, only for logging if enabled
+    if argsdict["divergence_all_other"]:
+        other = []
+        for divergence_name in ['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon','alpha_div']:
+            if divergence_name != argsdict['divergence']:
+                other.append(DivergenceData(divergence_name))
 
     # COMPLETE TRAINING PROCEDURE
     for epoch in range(n_iter):
-        G_losses, D_losses=[], []
-        real_stat, fake_stat=[], []
         if argsdict['visualize']:
             real_imgs=torch.zeros([num_samples, image_shape[1], image_shape[2]])
+
         for i_batch, sample_batch in enumerate(train_loader):
             optim_critic.zero_grad()
             if argsdict['use_cuda']:
-                real_img, label_batch=sample_batch[0].cuda(), sample_batch[1]
+                real_img, label_batch = sample_batch[0].cuda(), sample_batch[1]
             else:
-                real_img, label_batch=sample_batch[0], sample_batch[1]
+                real_img, label_batch = sample_batch[0], sample_batch[1]
             if argsdict['visualize']:
-                real_imgs[i_batch*train_batch_size:i_batch*train_batch_size+train_batch_size]=real_img.squeeze(1)
-            #fake img
+                real_imgs[i_batch * train_batch_size:i_batch * train_batch_size + train_batch_size] = real_img.squeeze(1)
+            # Fake image
             if argsdict['use_cuda']:
                 noise=Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim))).cuda()
             else:
                 noise=Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim)))
-            fake_img=generator(noise)
-            #Attempting loss
-            DX_score=critic(real_img)
-            DG_score=critic(fake_img)
-            loss_D=losses.D_loss(DX_score, DG_score)
-            fake, real=losses.RealFake(DG_score, DX_score)
-            real_stat.append(real)
-            fake_stat.append(fake)
-            loss_D.backward()
-            # D_grad=critic.x[0].weight.grad.detach()
+            fake_img = generator(noise)
+
+            # Train discriminator
+            # Compute discriminator loss and real / fake statistic for training divergence
+            score_dx = critic(real_img)
+            score_dg = critic(fake_img)
+            training.current_dis = training.divergence.D_loss(score_dx, score_dg)
+
+            training.current_dis.backward()
             optim_critic.step()
+            training.log_batch_dis.append(training.current_dis.item())
 
+            training.current_real, training.current_fake = training.divergence.RealFake(score_dx, score_dg)
+            training.log_batch_real.append(training.current_real)
+            training.log_batch_fake.append(training.current_fake)
 
-            #train the generator ever n_critic iterations
-            D_losses.append(loss_D.item())
-            if i_batch %n_critic_updates==0:
+            # Compute discriminator loss and real / fake statistic for other divergences, if enabled
+            if argsdict["divergence_all_other"]:
+                for item in other:
+                    item.current_dis = item.divergence.D_loss(score_dx, score_dg)
+                    item.log_batch_dis.append(item.current_dis.item())
+
+                    item.current_real, item.current_fake = item.divergence.RealFake(score_dx, score_dg)
+                    item.log_batch_real.append(item.current_real)
+                    item.log_batch_fake.append(item.current_fake)
+
+            # Train generator
+            # Compute generator loss and real / fake statistic for training divergence
+            if i_batch % n_critic_updates == 0:
                 optim_generator.zero_grad()
+                gen_img = generator(noise)
 
-                gen_img=generator(noise)
                 if argsdict['modified_loss']:
-                    DG_score = critic(gen_img)
+                    score_dg = critic(gen_img)
                     # We maximize instead of minimizing
-                    loss_G = losses.G_loss_modified_sec_32(DG_score)
+                    training.current_gen = training.divergence.G_loss_modified_sec_32(score_dg)
                 else:
-                    DG_score=critic(gen_img)
-                    loss_G = losses.G_loss(DG_score)
-                loss_G.backward()
+                    score_dg = critic(gen_img)
+                    training.current_gen = training.divergence.G_loss(score_dg)
+
+                training.current_gen.backward()
                 optim_generator.step()
 
-            G_losses.append(loss_G.item())
-        # print(G_losses)
-        # print(D_losses)
-        # print(D_grad)
-        print("Epoch[%d/%d], G Loss: %.4f, D Loss: %.4f"
-              % (epoch, n_iter, np.mean(G_losses), np.mean(D_losses)))
-        print(f"Classified on average {round(np.mean(real_stat), 2)} real examples correctly and {round(np.mean(fake_stat), 2)} fake examples correctly")
-        losses_Generator.append(np.mean(G_losses))
-        losses_Discriminator.append(np.mean(D_losses))
-        real_statistics.append(np.mean(real_stat))
-        fake_statistics.append(np.mean(fake_stat))
-        if argsdict['dataset']=='Gaussian':
+            training.log_batch_gen.append(training.current_gen.item())
+
+            # Compute generator loss and real / fake statistic for other divergences, if enabled
+            if argsdict["divergence_all_other"]:
+                for item in other:
+                    if argsdict['modified_loss']:
+                        # We maximize instead of minimizing
+                        item.current_gen = item.divergence.G_loss_modified_sec_32(score_dg)
+                    else:
+                        item.current_gen = item.divergence.G_loss(score_dg)
+                    
+                    item.log_batch_gen.append(item.current_gen.item())
+
+        # Finished all batches within epoch, average losses over the batches and log them, then clear the batch data
+        training.log_batch_to_epoch()
+        if argsdict["divergence_all_other"]:
+                for item in other:
+                    item.log_batch_to_epoch()
+        if not argsdict["divergence_all_other"]:
+            print(f"Epoch {epoch:>3} of {n_iter:<3} | Generator loss: {training.log_epoch_gen[-1]:15.3f} | Discriminator loss: {training.log_epoch_dis[-1]:15.3f} | Real statistic: {training.log_epoch_real[-1]:.2f} | Fake statistic: {training.log_epoch_fake[-1]:.2f}")
+        else:
+            print(f"=================================================================================================")
+            print(f"Epoch {epoch:>3} of {n_iter:<3}  |      Generator loss |  Discriminator loss |  Real statistic |  Fake statistic")
+            print(f"-------------------------------------------------------------------------------------------------")
+            print(f"{training.name:<17} | {training.log_epoch_gen[-1]:19.3f} | {training.log_epoch_dis[-1]:19.3f} | {training.log_epoch_real[-1]:15.2f} | {training.log_epoch_fake[-1]:15.2f}")
+            print(f"- - - - - - - - - | - - - - - - - - - - | - - - - - - - - - - | - - - - - - - - | - - - - - - - -")
+            for item in other:
+                print(f"{item.name:<17} | {item.log_epoch_gen[-1]:19.3f} | {item.log_epoch_dis[-1]:19.3f} | {item.log_epoch_real[-1]:15.2f} | {item.log_epoch_fake[-1]:15.2f}")
+                
+        if argsdict['dataset'] == 'Gaussian':
             #A bit hacky but reset iterators
             train_loader, valid_loader, test_loader = get_data(argsdict)
+
         if argsdict['visualize']:
             if argsdict['use_cuda']:
                 noise = Variable(torch.normal(torch.zeros(500, z_dim), torch.ones(500, z_dim))).cuda()
@@ -147,21 +211,36 @@ def run_exp(argsdict):
                 noise = Variable(torch.normal(torch.zeros(500, z_dim), torch.ones(500, z_dim)))
             fake_imgs = generator(noise)
             visualize_tsne(fake_imgs, real_imgs[:500], argsdict, epoch)
+
         with torch.no_grad():
-            img=generator(Fix_Noise)
-        #Saving Images
+            img = generator(Fix_Noise)
+
+        # Saving Images
         if argsdict['modified_loss']:
             save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID_trick32%d.png" % epoch, nrow=5, normalize=True)
         else:
-            save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]),f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5,normalize=True)
-        with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
-            json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator, 'real_stat':real_statistics, 'fake_stat':fake_statistics}, f)
+            save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5, normalize=True)
+
+        # Data dump
+        with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as file:
+            info_all = []
+            for item in (itertools.chain([training], other) if argsdict["divergence_all_other"] else [training]):
+                info_item = {"divergence": item.name,
+                             "gen_loss": item.log_epoch_gen,
+                             "dis_loss": item.log_epoch_dis,
+                             "real_stat": item.log_epoch_real,
+                             "fake_stat": item.log_epoch_fake}
+                info_all.append(info_item)
+            json.dump(info_all, file)
     
-        #Update the losses plot every 5 epochs
-        if epoch%5==0 and epoch!=0:
-            plot_losses(argsdict, epoch+1, show_plot=0)
-                  
+        # Update the losses plot every 5 epochs
+        """
+        if epoch % 5 == 0 and epoch != 0:
+            plot_losses(argsdict, epoch + 1, show_plot = 0)
+        """
+    """              
     plot_losses(argsdict, n_iter)
+    """
 
 
 if __name__ == '__main__':
@@ -170,6 +249,8 @@ if __name__ == '__main__':
                         help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
     parser.add_argument('--divergence', type=str, default='total_variation',
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div or all')
+    parser.add_argument('--divergence_all_other', action='store_false',
+                        help='Logs all other divergences for comparaison')
     parser.add_argument('--Gauss_size', type=int, default='2', help='The size of the Gaussian we generate')
     parser.add_argument('--number_gaussians', type=int, default='1', help='The number of Gaussian we generate')
 
@@ -182,6 +263,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     argsdict = args.__dict__
+    print("=======================================================================================================================================")
+    print(argsdict)
+    print("=======================================================================================================================================")
     if argsdict['divergence']=='all':
         divergence=['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon','alpha_div']
         for dd in divergence:
