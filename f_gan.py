@@ -104,48 +104,69 @@ from utils import *
 class Generator(nn.Module):
     """ Generator. Input is noise, output is a generated image.
     """
-    def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding, gauss_dim):
+    def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding, argsdict):
         super().__init__()
         self.image_size=image_size
-        self.mu=nn.Parameter(torch.randn(gauss_dim))
-        self.sigma=nn.Parameter(torch.abs(torch.randn(gauss_dim)))
-        # self.param=nn.ParameterList(self.mu, self.sigma)
+        x = [nn.Linear(z_dim, hidden_dim2),
+             nn.BatchNorm1d(hidden_dim2),
+             nn.ReLU(inplace=True),
+             # nn.Linear(hidden_dim, hidden_dim2),
+             # nn.BatchNorm1d(hidden_dim2),
+             # nn.ReLU(inplace=True),
+             nn.Linear(hidden_dim2, image_size[0]*image_size[1]*image_size[2])]
+
+        self.x = nn.Sequential(*x)
+        self.encoding=encoding
 
     def forward(self, x):
-        # print(x.shape)
         x=to_cuda(x.view(x.shape[0],-1))
-        # print(x.shape)
-        # print(self.sigma.unsqueeze(0).repeat(x.shape[0], 1).shape)
-        x=x*self.sigma.unsqueeze(0).repeat(x.shape[0], 1)+self.mu
-        x.reshape(x.shape[0], self.image_size[0], -1)
-        return x, self.mu, self.sigma
+        x=self.x(x)
+        if self.encoding=='tanh':
+            x = torch.tanh(x)
+        elif self.encoding=='sigmoid':
+            x = torch.sigmoid(x)
+            # x=torch.round(x)
+        x.reshape(x.shape[0], self.image_size[0],self.image_size[1],self.image_size[2])
+        return x
 
-
-
-# class Generator(nn.Module):
-#     def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding):
-#         super(Generator, self).__init__()
-#         h_dim=hidden_dim
-#         decoder = [nn.ConvTranspose2d(z_dim, 4*h_dim, 4, 1, 0),
-#                    nn.BatchNorm2d(4*h_dim),
-#                    nn.ReLU(True),
-#                    nn.ConvTranspose2d(4*h_dim, 2*h_dim, 4, 2, 1),
-#                    nn.BatchNorm2d(2*h_dim),
-#                    nn.ReLU(True),
-#                    nn.ConvTranspose2d(2*h_dim, h_dim, 3, 2, 1),
-#                    nn.BatchNorm2d(h_dim),
-#                    nn.ReLU(True),
-#                    nn.ConvTranspose2d(h_dim, 1, 2, 2, 1),
-#                    nn.Sigmoid()
-#                    ]
-#         self.decoder = nn.Sequential(*decoder)
 #
-#     def forward(self, z):
-#         z=to_cuda(z)
-#         img=self.decoder(z.view(z.shape[0], z.shape[1], 1, 1))
-#         # print(img.shape)
-#         return self.decoder(z.view(z.shape[0], z.shape[1], 1, 1))
+# class Generator(nn.Module):
+#     """ Generator. Input is noise, output is a generated image.
+#     """
+#     def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding, argsdict):
+#         super().__init__()
+#         self.gauss_dim=argsdict['Gauss_size']
+#         self.num_gaus=argsdict['number_gaussians']
+#         self.argsdict=argsdict
+#         self.image_size=image_size
+#         self.mu=nn.Parameter(torch.Tensor([random.randint(0, 27), random.randint(0, 27)]))
+#         self.sigma=nn.Parameter(torch.Tensor([random.randint(1, 10), random.randint(1, 10)]))
+#         print(self.mu, self.sigma)
+#         # self.param=nn.ParameterList(self.mu, self.sigma)
+#
+#     def forward(self, x):
+#         # print(x.shape)
+#         x=to_cuda(x.view(x.shape[0],-1))
+#         batch_size=x.shape[0]
+#         # print(x.shape)
+#         # print(self.sigma.unsqueeze(0).repeat(x.shape[0], 1).shape)
+#         bb = torch.zeros((batch_size, 1, 28, 28))
+#         # Choose random gaussian
+#         for j in range(batch_size):
+#             grid = torch.zeros(1, 28, 28)
+#             for k in range(self.argsdict['num_gen']):
+#                 gaus = random.randint(0, self.argsdict['number_gaussians'] - 1)
+#                 # mu = self.mu
+#                 # sigma = self.sigma
+#                 point = torch.round(self.sigma * torch.randn(self.argsdict['Gauss_size']).cuda() + self.mu)
+#                 # print(point)
+#                 point = torch.clip(point, 0, 27)
+#                 grid[0, int(point[0]), int(point[1])] = 1
+#             bb[j] = grid
+#         return bb, self.mu, self.sigma
 
+#TODO: Batch size vs lower bound
+#TODO:
 
 #
 class Critic(nn.Module):
@@ -155,10 +176,11 @@ class Critic(nn.Module):
     def __init__(self, image_size, hidden_dim, hidden_dim2):
         super().__init__()
         self.image_size = image_size
-        x = [nn.Linear(image_size, 64),
-             nn.Tanh(),
-             nn.Linear(64, 1),
-             nn.Tanh()]
+        x = [nn.Linear(image_size[0]*image_size[1]*image_size[2], hidden_dim),
+             nn.ELU(inplace=True),
+             nn.Linear(hidden_dim, hidden_dim2),
+             nn.ELU(inplace=True),
+             nn.Linear(hidden_dim2, 1)]
         #TODO: I'm very unsure as to wether we should have a sigmoid at the end of the critic. The
         #OG implementation had one but the paper says "The final activation function is determined by the divergence"
         #So to check.
@@ -170,55 +192,6 @@ class Critic(nn.Module):
         x = to_cuda(x.view(x.shape[0], -1))
         x = self.x(x)
         return x
-#
-class Criticsvhn(nn.Module):
-    def __init__(self, image_size, h_dim=64):
-        super(Criticsvhn, self).__init__()
-
-        x = [nn.Conv2d(3, h_dim, 4, 2, 1),
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(h_dim, 2*h_dim, 4, 2, 1),
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(2*h_dim, 4*h_dim, 4, 2, 1),
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(4*h_dim, 1, 4, 1, 0)]
-
-        self.x = nn.Sequential(*x)
-        self.linear = nn.Linear(image_size, h_dim)
-        self.discriminate = nn.Linear(h_dim, 1)
-        self.final=nn.Linear(2,1)
-
-    def forward(self, x):
-        cnn=self.x(x).squeeze()
-        x = to_cuda(x.view(x.shape[0], -1))
-        # print(self.linear)
-        # print(x.shape)
-        activated = F.relu(self.linear(x))
-        discrimination = self.discriminate(activated)
-        return torch.sigmoid(self.final(torch.cat([discrimination, cnn.unsqueeze(1)], dim=-1)))
-
-
-class Generatorsvhn(nn.Module):
-    def __init__(self, z_dim=100, h_dim=64):
-        super(Generatorsvhn, self).__init__()
-
-        decoder = [nn.ConvTranspose2d(z_dim, 4*h_dim, 4, 1, 0),
-                   nn.BatchNorm2d(4*h_dim),
-                   nn.ReLU(True),
-                   nn.ConvTranspose2d(4*h_dim, 2*h_dim, 4, 2, 1),
-                   nn.BatchNorm2d(2*h_dim),
-                   nn.ReLU(True),
-                   nn.ConvTranspose2d(2*h_dim, h_dim, 4, 2, 1),
-                   nn.BatchNorm2d(h_dim),
-                   nn.ReLU(True),
-                   nn.ConvTranspose2d(h_dim, 3, 4, 2, 1),
-                   nn.Tanh()
-                   ]
-        self.decoder = nn.Sequential(*decoder)
-
-    def forward(self, z):
-        return self.decoder(z.view(z.shape[0], z.shape[1], 1, 1))
-
 
 class fGAN(nn.Module):
     """ Super class to contain both Discriminator (D) and Generator (G)
@@ -370,9 +343,9 @@ class Divergence:
 
         #TestTensor
         # muq=torch.ones(2)
-        # mup=torch.ones(2)
+        # mup=torch.ones(2).unsqueeze(0)
         # sigq=torch.ones(2)
-        # sigp=torch.ones(2)
+        # sigp=torch.ones(2).unsqueeze(0)
 
         sigq=to_cuda(sigq.detach())
         sigp=to_cuda(sigp.detach())
@@ -391,8 +364,8 @@ class Divergence:
             div+=torch.sum(sigp/sigq)
             # print(torch.matmul((muq-mup), torch.diag(sigq.view(dim))).shape)
             # print((muq-mup).T)
-            div+=torch.matmul(torch.matmul((muq-mup), torch.diag(sigq.view(dim))), (muq-mup).T)[0, 0]
-            div-=sigq.shape[0]
+            div+=torch.matmul(torch.matmul((muq-mup), torch.diag(1/sigq.view(dim))), (muq-mup).T)[0, 0]
+            div-=sigq.shape[1]
             print(0.5*div)
             return 0.5*div
 

@@ -107,10 +107,10 @@ def get_data(argsdict):
         val = datasets.SVHN('data/', split='train', download=True, transform=transform)
         test = datasets.SVHN('data/', split='test', download=True, transform=transform)
     elif argsdict['dataset']=='Gaussian':
-        train_iter=GaussianGen(argsdict, BATCH_SIZE, 100000)
-        val_iter=GaussianGen(argsdict, BATCH_SIZE, 100000)
-        test_iter=GaussianGen(argsdict, BATCH_SIZE, 100000)
-        return train_iter, val_iter, test_iter, 100000
+        train_iter=GaussianGen(argsdict, BATCH_SIZE, argsdict['dataset_size'])
+        val_iter=GaussianGen(argsdict, BATCH_SIZE, argsdict['dataset_size'])
+        test_iter=GaussianGen(argsdict, BATCH_SIZE, argsdict['dataset_size'])
+        return train_iter, val_iter, test_iter
 
 
     train_iter = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
@@ -119,21 +119,54 @@ def get_data(argsdict):
 
     return train_iter, val_iter, test_iter, len(train)
 
+# def GaussianGen(argsdict, batch_size, Total):
+#     #Todo possibly a more efficient way to do this
+#     #TODO Add argument for number of point generated each time
+#     for i in range(int(Total/batch_size)):
+#         bb=torch.zeros((batch_size, argsdict['Gauss_size']))
+#         #Choose random gaussian
+#         for j in range(batch_size):
+#             gaus=random.randint(0, argsdict['number_gaussians']-1)
+#             mu=argsdict['mus'][gaus]
+#             sigma=argsdict['sigma'][gaus]
+#             point=sigma*torch.randn((argsdict['Gauss_size']))+mu
+#             bb[j]=point
+#         # print(bb[0])
+#         yield bb, torch.ones(2)
+
 def GaussianGen(argsdict, batch_size, Total):
     #Todo possibly a more efficient way to do this
     #TODO Add argument for number of point generated each time
     for i in range(int(Total/batch_size)):
-        bb=torch.zeros((batch_size, argsdict['Gauss_size']))
+        bb=torch.zeros((batch_size, 1, 28, 28))
         #Choose random gaussian
         for j in range(batch_size):
-            gaus=random.randint(0, argsdict['number_gaussians']-1)
-            mu=argsdict['mus'][gaus]
-            sigma=argsdict['sigma'][gaus]
-            point=sigma*torch.randn((argsdict['Gauss_size']))+mu
-            bb[j]=point
+            grid=torch.zeros(1, 28, 28)
+            for k in range(argsdict['num_gen']):
+                gaus=random.randint(0, argsdict['number_gaussians']-1)
+                mu=argsdict['mus'][gaus]
+                sigma = argsdict['sigma'][gaus]
+                point=torch.round(sigma*torch.randn(argsdict['Gauss_size'])+mu)
+                # print(point)
+                point=torch.clip(point, 0, 27)
+                grid[0, int(point[0]), int(point[1])]=1
+            bb[j]=grid
         # print(bb[0])
         yield bb, torch.ones(2)
 
+def estimate_mu_var(generated):
+    #Monte carlo estimate
+    mus=torch.zeros(generated.shape[0], 2)
+    vars=torch.zeros(generated.shape[0], 2)
+
+    for i, points in enumerate(generated):
+        #For one image
+        distri=points.nonzero()
+        mu=torch.mean(distri.float(), dim=0)
+        var=torch.sqrt(torch.var(distri.float(), dim=0))
+        mus[i]=mu
+        vars[i]=var
+    return torch.mean(mus, dim=0), torch.mean(vars, dim=0)
 
 def visualize_tsne(fake_img, real_img, argsdict, epoch):
     """Visualizing tsn"""
