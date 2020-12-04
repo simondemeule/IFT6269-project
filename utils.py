@@ -42,7 +42,6 @@ def to_cuda(x):
 
 def get_data(argsdict):
     """ Load data for binared MNIST """
-    torch.manual_seed(3435)
 
     BATCH_SIZE=argsdict['batch_size']
 
@@ -119,6 +118,21 @@ def get_data(argsdict):
 
     return train_iter, val_iter, test_iter, len(train)
 
+
+
+def get_data_q(argsdict):
+    """ Load data for binared MNIST """
+    torch.manual_seed(3435)
+
+    BATCH_SIZE=argsdict['batch_size']
+
+    train_iter=GaussianGen_q(argsdict, BATCH_SIZE, argsdict['dataset_size'])
+    val_iter=GaussianGen(argsdict, BATCH_SIZE, argsdict['dataset_size'])
+    test_iter=GaussianGen(argsdict, BATCH_SIZE, argsdict['dataset_size'])
+    return train_iter, val_iter, test_iter
+
+
+
 # def GaussianGen(argsdict, batch_size, Total):
 #     #Todo possibly a more efficient way to do this
 #     #TODO Add argument for number of point generated each time
@@ -138,19 +152,33 @@ def GaussianGen(argsdict, batch_size, Total):
     #Todo possibly a more efficient way to do this
     #TODO Add argument for number of point generated each time
     for i in range(int(Total/batch_size)):
-        bb=torch.zeros((batch_size, 1, 28, 28))
+        bb=torch.zeros((batch_size, argsdict['Gauss_size']))
         #Choose random gaussian
         for j in range(batch_size):
-            grid=torch.zeros(1, 28, 28)
-            for k in range(argsdict['num_gen']):
-                gaus=random.randint(0, argsdict['number_gaussians']-1)
-                mu=argsdict['mus'][gaus]
-                sigma = argsdict['sigma'][gaus]
-                point=torch.round(sigma*torch.randn(argsdict['Gauss_size'])+mu)
-                # print(point)
-                point=torch.clip(point, 0, 27)
-                grid[0, int(point[0]), int(point[1])]=1
-            bb[j]=grid
+            gaus=random.randint(0, argsdict['number_gaussians']-1)
+            mu=argsdict['mus'][gaus]
+            sigma = argsdict['sigma'][gaus]
+            point=sigma*torch.randn(argsdict['Gauss_size'])+mu
+            # print(point)
+
+            bb[j]=point
+        # print(bb[0])
+        yield bb, torch.ones(2)
+
+def GaussianGen_q(argsdict, batch_size, Total):
+    #Todo possibly a more efficient way to do this
+    #TODO Add argument for number of point generated each time
+    for i in range(int(Total/batch_size)):
+        bb=torch.zeros((batch_size, argsdict['Gauss_size']))
+        #Choose random gaussian
+        for j in range(batch_size):
+            gaus=random.randint(0, argsdict['number_gaussians']-1)
+            mu=argsdict['musq'][gaus]
+            sigma = argsdict['sigmaq'][gaus]
+            point=sigma*torch.randn(argsdict['Gauss_size'])+mu
+            # print(point)
+
+            bb[j]=point
         # print(bb[0])
         yield bb, torch.ones(2)
 

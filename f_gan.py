@@ -101,32 +101,27 @@ from utils import *
 #         x.reshape(x.shape[0], self.image_size[0],self.image_size[1],self.image_size[2])
 #         return x
 
+
 class Generator(nn.Module):
     """ Generator. Input is noise, output is a generated image.
     """
     def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding, argsdict):
         super().__init__()
+        gauss_dim=argsdict['Gauss_size']
         self.image_size=image_size
-        x = [nn.Linear(z_dim, hidden_dim2),
-             nn.BatchNorm1d(hidden_dim2),
-             nn.ReLU(inplace=True),
-             # nn.Linear(hidden_dim, hidden_dim2),
-             # nn.BatchNorm1d(hidden_dim2),
-             # nn.ReLU(inplace=True),
-             nn.Linear(hidden_dim2, image_size[0]*image_size[1]*image_size[2])]
-
-        self.x = nn.Sequential(*x)
-        self.encoding=encoding
+        self.mu=nn.Parameter(torch.randn(gauss_dim))
+        self.sigma=nn.Parameter(torch.abs(torch.randn(gauss_dim)))
+        # self.param=nn.ParameterList(self.mu, self.sigma)
 
     def forward(self, x):
+        # print(x.shape)
         x=to_cuda(x.view(x.shape[0],-1))
-        x=self.x(x)
-        if self.encoding=='tanh':
-            x = torch.tanh(x)
-        elif self.encoding=='sigmoid':
-            x = torch.sigmoid(x)
-            # x=torch.round(x)
-        x.reshape(x.shape[0], self.image_size[0],self.image_size[1],self.image_size[2])
+        # print(x.shape)
+        # print(self.sigma.unsqueeze(0).repeat(x.shape[0], 1).shape)
+        x=x*self.sigma.unsqueeze(0).repeat(x.shape[0], 1)+self.mu
+        # x=x+self.mu
+        # x.reshape(x.shape[0], self.image_size[0], -1)
+        # print(x.shape)
         return x
 
 #
@@ -176,10 +171,10 @@ class Critic(nn.Module):
     def __init__(self, image_size, hidden_dim, hidden_dim2):
         super().__init__()
         self.image_size = image_size
-        x = [nn.Linear(image_size[0]*image_size[1]*image_size[2], hidden_dim),
-             nn.ELU(inplace=True),
+        x = [nn.Linear(image_size, hidden_dim),
+             nn.ReLU(),
              nn.Linear(hidden_dim, hidden_dim2),
-             nn.ELU(inplace=True),
+             nn.ReLU(),
              nn.Linear(hidden_dim2, 1)]
         #TODO: I'm very unsure as to wether we should have a sigmoid at the end of the critic. The
         #OG implementation had one but the paper says "The final activation function is determined by the divergence"
@@ -190,6 +185,7 @@ class Critic(nn.Module):
 
     def forward(self, x):
         x = to_cuda(x.view(x.shape[0], -1))
+        # print(x[0])
         x = self.x(x)
         return x
 
@@ -309,6 +305,7 @@ class Divergence:
             elif self.method == 'alpha_div':
                 return -torch.mean(torch.tensor(2.)-(1+torch.exp(-DG_score)))
 
+    #TODO CHANGE REAL FAKE THERES AN ERROR
     def RealFake(self, DG_score, DX_score):
         #Returns the percent of examples that were correctly classified by the discriminator
         if self.method == 'total_variation':
@@ -347,12 +344,12 @@ class Divergence:
         # sigq=torch.ones(2)
         # sigp=torch.ones(2).unsqueeze(0)
 
-        sigq=to_cuda(sigq.detach())
-        sigp=to_cuda(sigp.detach())
-        mup=to_cuda(mup.detach())
-        muq=to_cuda(muq.detach())
+        sigq=to_cuda(sigq.detach().float())
+        sigp=to_cuda(sigp.detach().float())
+        mup=to_cuda(mup.detach().float())
+        muq=to_cuda(muq.detach().float())
         dim=mup.shape[1]
-        sigq, muq, sigp, mup=sigq.unsqueeze(0), muq.unsqueeze(0), sigp, mup
+        # sigq, muq, sigp, mup=sigq, muq, sigp, mup
         # print(mup.shape, muq.shape)
         # print(sigq.shape, sigp.shape)
         if self.method== "forward_kl":
@@ -361,231 +358,13 @@ class Divergence:
             # print(sigq)
             # print(div)
             div-=torch.sum(torch.log(sigp.float()))
-            div+=torch.sum(sigp/sigq)
+            div+=torch.sum(sigp*(1/sigq))
             # print(torch.matmul((muq-mup), torch.diag(sigq.view(dim))).shape)
             # print((muq-mup).T)
             div+=torch.matmul(torch.matmul((muq-mup), torch.diag(1/sigq.view(dim))), (muq-mup).T)[0, 0]
             div-=sigq.shape[1]
-            print(0.5*div)
             return 0.5*div
 
-
-class fGANTrainer:
-    """ Object to hold data iterators, train a GAN variant
-    """
-    def __init__(self, model, train_iter, val_iter, test_iter, viz=False):
-        self.model = to_cuda(model)
-        self.name = model.__class__.__name__
-
-        self.train_iter = train_iter
-        self.val_iter = val_iter
-        self.test_iter = test_iter
-
-        self.Glosses = []
-        self.Dlosses = []
-
-        self.viz = viz
-        self.num_epochs = 0
-
-    def train(self, num_epochs, method, G_lr=1e-4, D_lr=1e-4, D_steps=1):
-        """ Train a standard vanilla GAN architecture using f-divergence as loss
-
-            Logs progress using G loss, D loss, G(x), D(G(x)), visualizations
-            of Generator output.
-
-        Inputs:
-            num_epochs: int, number of epochs to train for
-            method: str, divergence metric to optimize
-            G_lr: float, learning rate for generator's Adam optimizer
-            D_lr: float, learning rate for discriminsator's Adam optimizer
-            D_steps: int, ratio for how often to train D compared to G
-        """
-        # Initialize loss, indicate which GAN it is
-        self.loss_fnc = Divergence(method)
-
-        # Initialize optimizers
-        G_optimizer = optim.Adam(params=[p for p in self.model.G.parameters()
-                                        if p.requires_grad], lr=G_lr)
-        D_optimizer = optim.Adam(params=[p for p in self.model.D.parameters()
-                                        if p.requires_grad], lr=D_lr)
-
-        # Approximate steps/epoch given D_steps per epoch
-        # --> roughly train in the same way as if D_step (1) == G_step (1)
-        epoch_steps = int(np.ceil(len(self.train_iter) / (D_steps)))
-
-        # Begin training
-        for epoch in tqdm(range(1, num_epochs+1)):
-
-            self.model.train()
-            G_losses, D_losses = [], []
-
-            for _ in range(epoch_steps):
-
-                D_step_loss = []
-
-                for _ in range(D_steps):
-
-                    # Reshape images
-                    images = self.process_batch(self.train_iter)
-
-                    # TRAINING D: Zero out gradients for D
-                    D_optimizer.zero_grad()
-
-                    # Train D to discriminate between real and generated images
-                    D_loss = self.train_D(images)
-
-                    # Update parameters
-                    D_loss.backward()
-                    D_optimizer.step()
-
-                    # Log results, backpropagate the discriminator network
-                    D_step_loss.append(D_loss.item())
-
-                # So that G_loss and D_loss have the same number of entries.
-                D_losses.append(np.mean(D_step_loss))
-
-                # TRAINING G: Zero out gradients for G
-                G_optimizer.zero_grad()
-
-                # Train G to generate images that fool the discriminator
-                G_loss = self.train_G(images)
-
-                # Log results, update parameters
-                G_losses.append(G_loss.item())
-                G_loss.backward()
-                G_optimizer.step()
-
-            # Save progress
-            self.Glosses.extend(G_losses)
-            self.Dlosses.extend(D_losses)
-
-            # Progress logging
-            print ("Epoch[%d/%d], G Loss: %.4f, D Loss: %.4f"
-                   %(epoch, num_epochs, np.mean(G_losses), np.mean(D_losses)))
-            self.num_epochs += 1
-
-            # Visualize generator progress
-            if self.viz:
-                self.generate_images(epoch)
-                plt.show()
-
-    def train_D(self, images):
-        """ Run 1 step of training for discriminator
-
-        Input:
-            images: batch of images (reshaped to [batch_size, -1])
-        Output:
-            D_loss: f-divergence between generated, true distributions
-        """
-        # Classify the real batch images, get the loss for these
-        DX_score = self.model.D(images)
-
-        # Sample noise z, generate output G(z)
-        noise = self.compute_noise(images.shape[0], self.model.z_dim)
-        G_output = self.model.G(noise)
-
-        # Classify the fake batch images, get the loss for these using sigmoid cross entropy
-        DG_score = self.model.D(G_output)
-
-        # Compute f-divergence loss
-        D_loss = self.loss_fnc.D_loss(DX_score, DG_score)
-
-        return D_loss
-
-    def train_G(self, images):
-        """ Run 1 step of training for generator
-
-        Input:
-            images: batch of images reshaped to [batch_size, -1]
-        Output:
-            G_loss: f-divergence for difference between generated, true distributiones
-        """
-        # Get noise (denoted z), classify it using G, then classify the output
-        # of G using D.
-        noise = self.compute_noise(images.shape[0], self.model.z_dim) # z
-        G_output = self.model.G(noise) # G(z)
-        DG_score = self.model.D(G_output) # D(G(z))
-
-        # Compute f-divergence loss
-        G_loss = self.loss_fnc.G_loss(DG_score)
-
-        return G_loss
-
-    def compute_noise(self, batch_size, z_dim):
-        """ Compute random noise for input into Generator G """
-        return to_cuda(torch.randn(batch_size, z_dim))
-
-    def process_batch(self, iterator):
-        """ Generate a process batch to be input into the Discriminator D """
-        images, _ = next(iter(iterator))
-        return images
-
-    def generate_images(self, epoch, num_outputs=36, save=True):
-        """ Visualize progress of generator learning """
-        # Turn off any regularization
-        self.model.eval()
-
-        # Sample noise vector
-        noise = self.compute_noise(num_outputs, self.model.z_dim)
-
-        # Transform noise to image
-        images = self.model.G(noise)
-
-        # Reshape to proper image size
-        images = images.view(images.shape[0],
-                             self.model.shape,
-                             self.model.shape,
-                             -1).squeeze()
-
-        # Plot
-        plt.close()
-        grid_size, k = int(num_outputs**0.5), 0
-        fig, ax = plt.subplots(grid_size, grid_size, figsize=(5, 5))
-        for i, j in product(range(grid_size), range(grid_size)):
-            ax[i,j].get_xaxis().set_visible(False)
-            ax[i,j].get_yaxis().set_visible(False)
-            images=images.cpu()
-            ax[i,j].imshow(images[k].data.cpu().numpy(), cmap='gray')
-            k += 1
-
-        # Save images if desired
-        if save:
-            outname = '../viz/' + self.name + '/' + self.loss_fnc.method + '/'
-            if not os.path.exists(outname):
-                os.makedirs(outname)
-            torchvision.utils.save_image(images.unsqueeze(1).data,
-                                         outname + 'reconst_%d.png'
-                                         %(epoch), nrow=grid_size)
-
-    def viz_loss(self):
-        """ Visualize loss for the generator, discriminator """
-        # Set style, figure size
-        plt.style.use('ggplot')
-        plt.rcParams["figure.figsize"] = (8,6)
-
-        # Plot Discriminator loss in red
-        plt.plot(np.linspace(1, self.num_epochs, len(self.Dlosses)),
-                 self.Dlosses,
-                 'r')
-
-        # Plot Generator loss in green
-        plt.plot(np.linspace(1, self.num_epochs, len(self.Dlosses)),
-                 self.Glosses,
-                 'g')
-
-        # Add legend, title
-        plt.legend(['Discriminator', 'Generator'])
-        plt.title(self.name + ' : ' + self.loss_fnc.method)
-        plt.show()
-
-    def save_model(self, savepath):
-        """ Save model state dictionary """
-        torch.save(self.model.state_dict(), savepath)
-
-    def load_model(self, loadpath):
-        """ Load state dictionary into model """
-        state = torch.load(loadpath)
-        self.model.load_state_dict(state)
 
 
 if __name__ == '__main__':
