@@ -3,3 +3,5 @@ env/**
 workspace.code-workspace
 .DS_Store
 data/**
+venv/
+.idea/
