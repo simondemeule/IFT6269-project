@@ -5,3 +5,4 @@ workspace.code-workspace
 data/**
 venv/
 .idea/
+__pycache__/
