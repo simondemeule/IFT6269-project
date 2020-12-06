@@ -232,13 +232,16 @@ class Divergence:
                         - torch.mean((1-torch.exp(DG_score))/(torch.exp(DG_score))))
 
         elif self.method == 'jensen_shannon':
-            return -(torch.mean(torch.tensor(2.)-(1+torch.exp(-DX_score))) \
-                        - torch.mean(-(torch.tensor(2.)-torch.exp(DG_score))))
+            return -(torch.mean(torch.log(torch.tensor(2.))-torch.log((1+torch.exp(-DX_score)))) \
+                        - torch.mean(-(torch.log(torch.tensor(2.))-torch.exp(torch.log(torch.tensor(2.))\
+                        -torch.log((1+torch.exp(-DG_score)))))))
 
         elif self.method == 'alpha_div':
             #for alpha >1 
             alpha = 1.5
             return -(torch.mean(DX_score)-torch.mean(1./alpha*(DG_score*(alpha-1.) + 1.)**(alpha/(alpha-1)) -1./alpha ))
+
+
 
     def G_loss(self, DG_score):
         """ Compute batch loss for generator using f-divergence metric """
@@ -259,7 +262,8 @@ class Divergence:
             return -torch.mean((1-torch.exp(DG_score))/(torch.exp(DG_score)))
 
         elif self.method == 'jensen_shannon':
-            return -torch.mean(-(torch.tensor(2.)-torch.exp(DG_score)))
+            return - torch.mean(-(torch.log(torch.tensor(2.))-torch.exp(torch.log(torch.tensor(2.))\
+                        -torch.log((1+torch.exp(-DG_score))))))
 
         elif self.method == 'alpha_div':
             # for alpha > 1
@@ -286,13 +290,37 @@ class Divergence:
                 return -torch.mean(1-torch.exp(DG_score))
 
             elif self.method == 'jensen_shannon':
-                return -torch.mean(torch.tensor(2.)-(1+torch.exp(-DG_score)))
+                return -torch.mean(torch.log(torch.tensor(2.))-torch.log((1+torch.exp(-DG_score))))
             
             elif self.method == 'alpha_div':
                 return -torch.mean(torch.tensor(2.)-(1+torch.exp(-DG_score)))
 
+    def Tx(self, score):
+        """Given V(x) compute T(x) """
+        #This formula can also be used to calculated the total f-divergence
+        if self.method == 'total_variation':
+            return 0.5*torch.tanh(score)
+
+        elif self.method == 'forward_kl':
+            return score
+
+        elif self.method == 'reverse_kl':
+            return -torch.exp(score)
+
+        elif self.method == 'pearson':
+            return score
+
+        elif self.method == 'hellinger':
+            return 1-torch.exp(score)
+
+        elif self.method == 'jensen_shannon':
+            return torch.log(torch.tensor(2.))-torch.log(1+torch.exp(-score))
+
+
     def RealFake(self, DG_score, DX_score):
         #Returns the percent of examples that were correctly classified by the discriminator
+        DG_score=self.Tx(DG_score)
+        DX_score=self.Tx((DX_score))
         if self.method == 'total_variation':
             thresh=0
 
@@ -313,9 +341,8 @@ class Divergence:
 
         elif self.method == 'alpha_div':
             thresh=0
-        #TODO In the paper its the inverse I think
-        predGen = sum([1 if pred > thresh else 0 for pred in DG_score])
-        predReal = sum([0 if pred > thresh else 1 for pred in DX_score])
+        predGen = sum([1 if pred < thresh else 0 for pred in DG_score])
+        predReal = sum([0 if pred < thresh else 1 for pred in DX_score])
         GenLen=DG_score.shape[0]
         RealLen=DX_score.shape[0]
         return float(predGen)/GenLen, float(predReal)/RealLen
