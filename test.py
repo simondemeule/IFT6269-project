@@ -1,8 +1,5 @@
+import plotting as p
 
-import json
-
-with open(f"MNIST_IMGS/total_variation/DivergenceOther.txt", "r") as file:
-    other = json.load(file)
-
-for item in other:
-    print(item['divergence'])
+datasets = ['MNIST', 'svhn', 'CIFAR', 'Gaussian']
+for dataset in datasets:
+    p.plot_divergence_all(dataset, show_plot=False)
