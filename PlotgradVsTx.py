@@ -52,8 +52,10 @@ for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pea
     y = []
     div = Divergence(loss)
     variable = torch.zeros(1, requires_grad=True)
-    for i in x:
+    #Fill Y axis from 5 to -5
+    for i in x[::-1]:
         arr=[]
+        #Fill x axis from -5 to 5
         for j in x:
             variable = torch.zeros(1, requires_grad=True) + i
             variable2 = torch.zeros(1, requires_grad=True)+j
@@ -62,9 +64,13 @@ for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pea
             grad2=torch.autograd.grad(lg, variable2)
             arr.append(grad[0]+grad2[0])
         y.append(arr)
-
+    # print(fprim)
+    line=np.zeros_like(x)+(fprim+5)*10
+    # print(line)
     figure, axes = plt.subplots()
     plt.imshow(y, cmap='hot', interpolation='nearest')
+    plt.plot(np.arange(0,100), line, color='white')
+    plt.plot(np.zeros_like(x)+(-fprim+5)*10,np.arange(0,100), color='white')
 
     # plt.plot(x, y, label=loss, color=color)
 
@@ -77,8 +83,22 @@ for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pea
     # axes.axis([-5,5,-5,5])
     # axes.set_xlim([xmin,xmax])
     # axes.set_ylim([-10,10])
-    plt.xticks(np.arange(0,100, 10), [-5,-4,-3,-2,-1,0,1,2,3,4])
-    plt.yticks(np.arange(0,100, 10), [-5,-4,-3,-2,-1,0,1,2,3,4])
-    plt.title(f'Gradient of the discriminator vs V(x) for {loss} divergence')
+    # print(np.arange(0,100, 10))
+    # print(np.append(np.arange(0,100, 10), 99))
+    plt.xticks(np.append(np.arange(0,100, 10), 99), [-5,-4,-3,-2,-1,0,1,2,3,4, 5])
+    plt.yticks(np.append(np.arange(0,100, 10), 99), [5,4,3,2,1,0,-1,-2,-3,-4, -5])
+    if loss=='total_variation':
+        title='Total Variation'
+    elif loss=='forward_kl':
+        title='Forward KL'
+    elif loss=='reverse_kl':
+        title='Reverse KL'
+    elif loss=='pearson':
+        title='Pearson'
+    elif loss=='hellinger':
+        title='Hellinger'
+    elif loss=='jensen_shannon':
+        title='Jensen Shannon'
+    plt.title(f'Gradient of the discriminator vs V(x) for the {title} divergence')
     plt.savefig(f"Grad_Graphs/GradientOfDiscriminator{loss}.png")
     plt.close(fig)
