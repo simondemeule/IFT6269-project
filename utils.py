@@ -1,34 +1,8 @@
 import torch
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
-from sklearn.manifold import TSNE
-import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
-import ast
-import random
-
-def plot_losses(argsdict, num_epochs, show_plot=1):
-    file = open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "r")
-    contents = file.read()
-    losses_dict = ast.literal_eval(contents)
-    file. close()
-    epochs = [i for i in range(num_epochs)]
-    
-    if show_plot==0:
-        plt.ioff()
-    fig = plt.figure()
-    plt.plot(epochs, losses_dict['Gen_Loss'], label='Generator loss', color='red')
-    plt.plot(epochs, losses_dict['Discri_Loss'], label='Discriminator loss', color='green')
-    plt.legend()
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.title('Evolution of the Generator and Discriminator losses')
-    plt.savefig(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses_evol.png")
-    if show_plot==0:
-        plt.close(fig)
-    else:
-        plt.show()
+import random    
 
 def to_var(x):
     """ Make a tensor cuda-erized and requires gradient """
@@ -138,23 +112,3 @@ def GaussianGen(argsdict, batch_size, Total):
             bb[j]=grid
         # print(bb[0])
         yield bb, torch.ones(2)
-
-
-def visualize_tsne(fake_img, real_img, argsdict, epoch):
-    """Visualizing tsn"""
-    #Reshaping images and concatenating
-    imgs = torch.cat([fake_img.reshape(fake_img.shape[0], -1).cpu().detach(), real_img.reshape(real_img.shape[0], -1).cpu().detach()])
-    y = ['Generated' for _ in range(fake_img.shape[0])] + ['Real' for _ in range(real_img.shape[0])]
-    #tsne
-    tsne_obj = TSNE(n_components=2).fit_transform(imgs)
-    tsne_df = pd.DataFrame({'X': tsne_obj[:, 0],
-                            'Y': tsne_obj[:, 1],
-                            'Images': y})
-    sns_plot = sns.scatterplot(x="X", y="Y",
-                               hue="Images",
-                               palette=['purple', 'red'],
-                               legend='auto',
-                               data=tsne_df)
-    sns_plot.figure.savefig(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/TSNEVIZ%d.png" % epoch)
-    #Closing because I hate matplotlib its a piece of garbage
-    plt.close(sns_plot.figure)

@@ -1,0 +1,1 @@
+{"dataset": "MNIST", "divergence": "total_variation", "divergence_all_other": true, "Gauss_size": 2, "number_gaussians": 1, "epochs": 50, "batch_size": 64, "critic_updates": 1, "learn_rate": 0.0001, "beta_1": 0.5, "beta_2": 0.9, "z_dimensions": 25, "hidden_dimensions": [400, 400], "modified_loss": false, "hidden_crit_size": 32, "visualize": true, "use_cuda": false}

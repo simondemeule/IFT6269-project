@@ -2,7 +2,7 @@ import torch
 from torch import optim
 from torch.autograd import Variable
 from torchvision.utils import save_image
-from utils import get_data, visualize_tsne, plot_losses
+from utils import get_data
 from f_gan import Generator, Critic, Divergence
 import argparse
 import numpy as np
@@ -10,8 +10,9 @@ import json
 import random
 import matplotlib.pyplot as plt
 import ast
-import itertools
+from plotting import plot_divergence_training, plot_divergence_other, plot_real_fake_training, visualize_tsne
 
+# utility data structure for storing divergence data
 class DivergenceData:
     def __init__(self, name):
         self.name = name
@@ -42,18 +43,30 @@ class DivergenceData:
         self.log_batch_real = []
         self.log_batch_fake = []
 
+# utility data structure for storing performance measurements of the network
+class PerformanceData:
+    def __init__(self):
+        self.accumulator_walk_gen = 0
+        self.accumulator_walk_dis = 0
+        self.epoch_walk_gen = []
+        self.epoch_walk_dis = []
+
 def run_exp(argsdict):
+    # Dump the arguments so that hyperparameters are known when interpreting the data later
+    with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/DataHyperparameters.txt", "w") as file:
+            json.dump(argsdict, file)
+
     # Example of usage of the code provided and recommended hyper parameters for training GANs.
     data_root = './'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    n_iter = 50 # N training iterations
-    n_critic_updates = 1 # N critic updates per generator update
+    n_iter = argsdict['epochs'] # N training iterations
+    n_critic_updates = argsdict['critic_updates'] # N critic updates per generator update
     train_batch_size = argsdict['batch_size']
-    lr = 1e-4
-    beta1 = 0.5
-    beta2 = 0.9
-    z_dim = 25
-    hidden_dim=(400, 400)
+    lr = argsdict['learn_rate']
+    beta1 = argsdict['beta_1']
+    beta2 = argsdict['beta_2']
+    z_dim = argsdict['z_dimensions']
+    hidden_dim = tuple(argsdict['hidden_dimensions'])
 
     if argsdict['dataset'] in ['svhn']:
         image_shape=(3, 32, 32)
@@ -96,9 +109,9 @@ def run_exp(argsdict):
     optim_generator = optim.Adam(generator.parameters(), lr=lr)#, betas=(beta1, beta2))
 
     if argsdict['use_cuda']:
-        Fix_Noise=Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim))).cuda()
+        Fix_Noise = Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim))).cuda()
     else:
-        Fix_Noise=Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim)))
+        Fix_Noise = Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim)))
 
     # divergence used for training
     training = DivergenceData(argsdict['divergence'])
@@ -113,7 +126,7 @@ def run_exp(argsdict):
     # COMPLETE TRAINING PROCEDURE
     for epoch in range(n_iter):
         if argsdict['visualize']:
-            real_imgs=torch.zeros([num_samples, image_shape[1], image_shape[2]])
+            real_imgs = torch.zeros([num_samples, image_shape[1], image_shape[2]])
 
         for i_batch, sample_batch in enumerate(train_loader):
             optim_critic.zero_grad()
@@ -125,9 +138,9 @@ def run_exp(argsdict):
                 real_imgs[i_batch * train_batch_size:i_batch * train_batch_size + train_batch_size] = real_img.squeeze(1)
             # Fake image
             if argsdict['use_cuda']:
-                noise=Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim))).cuda()
+                noise = Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim))).cuda()
             else:
-                noise=Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim)))
+                noise = Variable(torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim)))
             fake_img = generator(noise)
 
             # Train discriminator
@@ -210,7 +223,7 @@ def run_exp(argsdict):
             else:
                 noise = Variable(torch.normal(torch.zeros(500, z_dim), torch.ones(500, z_dim)))
             fake_imgs = generator(noise)
-            visualize_tsne(fake_imgs, real_imgs[:500], argsdict, epoch)
+            visualize_tsne(fake_imgs, real_imgs[:500], argsdict['dataset'], argsdict['divergence'], epoch)
 
         with torch.no_grad():
             img = generator(Fix_Noise)
@@ -222,25 +235,36 @@ def run_exp(argsdict):
             save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5, normalize=True)
 
         # Data dump
-        with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as file:
-            info_all = []
-            for item in (itertools.chain([training], other) if argsdict["divergence_all_other"] else [training]):
-                info_item = {"divergence": item.name,
-                             "gen_loss": item.log_epoch_gen,
-                             "dis_loss": item.log_epoch_dis,
-                             "real_stat": item.log_epoch_real,
-                             "fake_stat": item.log_epoch_fake}
-                info_all.append(info_item)
-            json.dump(info_all, file)
+        with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/DataDivergenceTraining.txt", "w") as file:
+            json.dump({"divergence": training.name,
+                       "gen_loss": training.log_epoch_gen,
+                       "dis_loss": training.log_epoch_dis,
+                       "real_stat": training.log_epoch_real,
+                       "fake_stat": training.log_epoch_fake}, file)
+        if argsdict["divergence_all_other"]:
+            with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/DataDivergenceOther.txt", "w") as file:
+                info_all = []
+                for item in other:
+                    info_item = {"divergence": item.name,
+                                "gen_loss": item.log_epoch_gen,
+                                "dis_loss": item.log_epoch_dis,
+                                "real_stat": item.log_epoch_real,
+                                "fake_stat": item.log_epoch_fake}
+                    info_all.append(info_item)
+                json.dump(info_all, file)
     
-        # Update the losses plot every 5 epochs
-        """
-        if epoch % 5 == 0 and epoch != 0:
-            plot_losses(argsdict, epoch + 1, show_plot = 0)
-        """
-    """              
-    plot_losses(argsdict, n_iter)
-    """
+        # Update the losses plot
+        if epoch + 1 != n_iter:
+            plot_divergence_training(argsdict['dataset'], argsdict['divergence'], show_plot=False)
+            if argsdict["divergence_all_other"]:
+                plot_divergence_other(argsdict['dataset'], argsdict['divergence'], show_plot=False)
+            plot_real_fake_training(argsdict['dataset'], argsdict['divergence'], show_plot=False)
+    
+    # Epochs are over, finally display the plots
+    plot_divergence_training(argsdict['dataset'], argsdict['divergence'], show_plot=True)
+    if argsdict["divergence_all_other"]:
+        plot_divergence_other(argsdict['dataset'], argsdict['divergence'], show_plot=True)
+    plot_real_fake_training(argsdict['dataset'], argsdict['divergence'], show_plot=True)
 
 
 if __name__ == '__main__':
@@ -253,12 +277,17 @@ if __name__ == '__main__':
                         help='Logs all other divergences for comparaison')
     parser.add_argument('--Gauss_size', type=int, default='2', help='The size of the Gaussian we generate')
     parser.add_argument('--number_gaussians', type=int, default='1', help='The number of Gaussian we generate')
-
-    #Training options
-    parser.add_argument('--batch_size', type=int, default='64', help='batch size for training and testing')
-    parser.add_argument('--modified_loss', action='store_true', help='use the loss of section 3.2 instead of the original formulation')
+    parser.add_argument('--epochs', type=int, default='50', help='Number of epochs to run for training')
+    parser.add_argument('--batch_size', type=int, default='64', help='Batch size for training and testing')
+    parser.add_argument('--critic_updates', type=int, default='1', help='Number of critic updates per generator update')
+    parser.add_argument('--learn_rate', type=float, default='1e-4', help='Learning rate')
+    parser.add_argument('--beta_1', type=float, default='0.5', help='Beta 1')
+    parser.add_argument('--beta_2', type=float, default='0.9', help='Beta 2')
+    parser.add_argument('--z_dimensions', type=int, default='25', help='Z dimensions')
+    parser.add_argument('--hidden_dimensions', nargs='+', type=int, default=[400, 400], help='Hidden dimensions')
+    parser.add_argument('--modified_loss', action='store_true', help='Use the loss of section 3.2 instead of the original formulation')
     parser.add_argument('--hidden_crit_size', type=int, default=32)
-    parser.add_argument('--visualize', action='store_true', help='save visualization of the datasets using t-sne')
+    parser.add_argument('--visualize', action='store_false', help='Save visualization of the datasets using t-sne')
     parser.add_argument('--use_cuda', action='store_true', help='Use gpu')
     args = parser.parse_args()
 
