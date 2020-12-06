@@ -232,8 +232,9 @@ class Divergence:
                         - torch.mean((1-torch.exp(DG_score))/(torch.exp(DG_score))))
 
         elif self.method == 'jensen_shannon':
-            return -(torch.mean(torch.tensor(2.)-(1+torch.exp(-DX_score))) \
-                        - torch.mean(-(torch.tensor(2.)-torch.exp(DG_score))))
+            return -(torch.mean(torch.log(torch.tensor(2.))-torch.log((1+torch.exp(-DX_score)))) \
+                        - torch.mean(-(torch.log(torch.tensor(2.))-torch.exp(torch.log(torch.tensor(2.))\
+                        -torch.log((1+torch.exp(-DG_score)))))))
 
         elif self.method == 'alpha_div':
             #for alpha >1 
@@ -261,7 +262,8 @@ class Divergence:
             return -torch.mean((1-torch.exp(DG_score))/(torch.exp(DG_score)))
 
         elif self.method == 'jensen_shannon':
-            return -torch.mean(-(torch.tensor(2.)-torch.exp(DG_score)))
+            return - torch.mean(-(torch.log(torch.tensor(2.))-torch.exp(torch.log(torch.tensor(2.))\
+                        -torch.log((1+torch.exp(-DG_score))))))
 
         elif self.method == 'alpha_div':
             # for alpha > 1
@@ -288,7 +290,7 @@ class Divergence:
                 return -torch.mean(1-torch.exp(DG_score))
 
             elif self.method == 'jensen_shannon':
-                return -torch.mean(torch.tensor(2.)-(1+torch.exp(-DG_score)))
+                return -torch.mean(torch.log(torch.tensor(2.))-torch.log((1+torch.exp(-DG_score))))
             
             elif self.method == 'alpha_div':
                 return -torch.mean(torch.tensor(2.)-(1+torch.exp(-DG_score)))
@@ -312,7 +314,7 @@ class Divergence:
             return 1-torch.exp(score)
 
         elif self.method == 'jensen_shannon':
-            return torch.log(2.)-torch.log(1+torch.exp(-score))
+            return torch.log(torch.tensor(2.))-torch.log(1+torch.exp(-score))
 
     def RealFake(self, DG_score, DX_score):
         #Returns the percent of examples that were correctly classified by the discriminator
