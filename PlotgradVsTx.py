@@ -4,7 +4,7 @@ from f_gan import Divergence
 import matplotlib.pyplot as plt
 import numpy as np
 
-fprim1=[0,1,-1,0,0,0]
+fprim1=[0,1,0,0,0,0]
 
 variable2=torch.zeros(1, requires_grad=True)
 
@@ -64,6 +64,9 @@ for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pea
             grad2=torch.autograd.grad(lg, variable2)
             arr.append(grad[0]+grad2[0])
         y.append(arr)
+    # print(fprim)
+    # print(torch.Tensor([fprim]))
+    # fprim=div.Tx(torch.Tensor([fprim]))[0].item()
     # print(fprim)
     line=np.zeros_like(x)+(fprim+5)*10
     # print(line)

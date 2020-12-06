@@ -316,6 +316,7 @@ class Divergence:
         elif self.method == 'jensen_shannon':
             return torch.log(torch.tensor(2.))-torch.log(1+torch.exp(-score))
 
+
     def RealFake(self, DG_score, DX_score):
         #Returns the percent of examples that were correctly classified by the discriminator
         DG_score=self.Tx(DG_score)
