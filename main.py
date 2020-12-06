@@ -105,8 +105,12 @@ def run_exp(argsdict):
 
     #TODO Adding beta seems to make total variation go to 0, why.
     #TODO In rapport talk about how finicky the whole system is
-    optim_critic = optim.Adam(critic.parameters(), lr=lr)#, betas=(beta1, beta2))
-    optim_generator = optim.Adam(generator.parameters(), lr=lr)#, betas=(beta1, beta2))
+    if argsdict['optimizer']=='SGD':
+        optim_critic = ss_SGD(critic.parameters(), lr=0.0001)
+        optim_generator = ss_SGD(generator.parameters(), lr=0.0001)
+    else:
+        optim_critic = optim.Adam(critic.parameters(), lr=lr)#, betas=(beta1, beta2))
+        optim_generator = optim.Adam(generator.parameters(), lr=lr)#, betas=(beta1, beta2))
 
     if argsdict['use_cuda']:
         Fix_Noise = Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim))).cuda()
@@ -123,6 +127,7 @@ def run_exp(argsdict):
             if divergence_name != argsdict['divergence']:
                 other.append(DivergenceData(divergence_name))
 
+    objective=1#Initialize objective F(\theta, \omega) in the article
     # COMPLETE TRAINING PROCEDURE
     for epoch in range(n_iter):
         if argsdict['visualize']:
@@ -150,7 +155,10 @@ def run_exp(argsdict):
             training.current_dis = training.divergence.D_loss(score_dx, score_dg)
 
             training.current_dis.backward()
-            optim_critic.step()
+            if argsdict['optimizer']=='SGD':
+                optim_critic.single_step(objective=objective)
+            else:
+                optim_critic.step()
             training.log_batch_dis.append(training.current_dis.item())
 
             training.current_real, training.current_fake = training.divergence.RealFake(score_dx, score_dg)
@@ -182,10 +190,14 @@ def run_exp(argsdict):
                     training.current_gen = training.divergence.G_loss(score_dg)
 
                 training.current_gen.backward()
-                optim_generator.step()
+                if argsdict['optimizer']=='SGD':
+                    optim_generator.single_step(objective=objective)
+                else:
+                    optim_generator.step()
 
+            objective = item.current_dis.item() #F(\theta, \omega) with the updated parameters
             training.log_batch_gen.append(training.current_gen.item())
-
+            
             # Compute generator loss and real / fake statistic for other divergences, if enabled
             if argsdict["divergence_all_other"]:
                 for item in other:
@@ -289,6 +301,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_crit_size', type=int, default=32)
     parser.add_argument('--visualize', action='store_false', help='Save visualization of the datasets using t-sne')
     parser.add_argument('--use_cuda', action='store_true', help='Use gpu')
+    parser.add_argument('--optimizer', type=str, default='adams', help='The optimizer used for updating the distribution parameters. Include Adams and SGD')
     args = parser.parse_args()
 
     argsdict = args.__dict__
