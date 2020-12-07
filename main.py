@@ -123,7 +123,7 @@ def run_exp(argsdict):
     # other divergences, only for logging if enabled
     if argsdict["divergence_all_other"]:
         other = []
-        for divergence_name in ['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon','alpha_div']:
+        for divergence_name in ['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon']:
             if divergence_name != argsdict['divergence']:
                 other.append(DivergenceData(divergence_name))
 
