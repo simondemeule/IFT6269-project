@@ -101,7 +101,7 @@ def run_exp(argsdict):
     print(f"Number of samples: {num_samples}")
     generator = Generator(image_shape, hidden_dim[0], hidden_dim[1], z_dim, encoding).to(device)
     # generator = Generatorsvhn(z_dim, hidden_dim).to(device)
-    critic = Critic(image_shape, 400, 400).to(device)
+    critic = Critic(image_shape, 32, 32).to(device)
     # critic = Criticsvhn(argsdict['hidden_discri_size']).to(device)
 
     #TODO Adding beta seems to make total variation go to 0, why.
@@ -297,7 +297,7 @@ if __name__ == '__main__':
     parser.add_argument('--beta_1', type=float, default='0.5', help='Beta 1')
     parser.add_argument('--beta_2', type=float, default='0.9', help='Beta 2')
     parser.add_argument('--z_dimensions', type=int, default='25', help='Z dimensions')
-    parser.add_argument('--hidden_dimensions', nargs='+', type=int, default=[400, 400], help='Hidden dimensions')
+    parser.add_argument('--hidden_dimensions', nargs='+', type=int, default=[200, 200], help='Hidden dimensions')
     parser.add_argument('--modified_loss', action='store_true', help='Use the loss of section 3.2 instead of the original formulation')
     parser.add_argument('--hidden_crit_size', type=int, default=32)
     parser.add_argument('--visualize', action='store_true', help='Save visualization of the datasets using t-sne')
