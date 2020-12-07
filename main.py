@@ -107,8 +107,8 @@ def run_exp(argsdict):
     #TODO Adding beta seems to make total variation go to 0, why.
     #TODO In rapport talk about how finicky the whole system is
     if argsdict['optimizer']=='SGD':
-        optim_critic = ss_SGD(critic.parameters(), lr=0.0001)
-        optim_generator = ss_SGD(generator.parameters(), lr=0.0001)
+        optim_critic = ss_SGD(critic.parameters(), lr=0.0000001)
+        optim_generator = ss_SGD(generator.parameters(), lr=0.1)
     else:
         optim_critic = optim.Adam(critic.parameters(), lr=lr)#, betas=(beta1, beta2))
         optim_generator = optim.Adam(generator.parameters(), lr=lr)#, betas=(beta1, beta2))
@@ -157,7 +157,7 @@ def run_exp(argsdict):
 
             training.current_dis.backward()
             if argsdict['optimizer']=='SGD':
-                optim_critic.single_step(objective=objective)
+                optim_critic.single_step(objective=-objective)
             else:
                 optim_critic.step()
             training.log_batch_dis.append(training.current_dis.item())
@@ -196,7 +196,7 @@ def run_exp(argsdict):
                 else:
                     optim_generator.step()
 
-            objective = item.current_dis.item() #F(\theta, \omega) with the updated parameters
+            objective = -training.current_dis.item() #F(\theta, \omega) with the updated parameters
             training.log_batch_gen.append(training.current_gen.item())
             
             # Compute generator loss and real / fake statistic for other divergences, if enabled
@@ -286,7 +286,7 @@ if __name__ == '__main__':
                         help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
     parser.add_argument('--divergence', type=str, default='total_variation',
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div or all')
-    parser.add_argument('--divergence_all_other', action='store_false',
+    parser.add_argument('--divergence_all_other', action='store_true',
                         help='Logs all other divergences for comparaison')
     parser.add_argument('--Gauss_size', type=int, default='2', help='The size of the Gaussian we generate')
     parser.add_argument('--number_gaussians', type=int, default='1', help='The number of Gaussian we generate')
@@ -300,15 +300,15 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_dimensions', nargs='+', type=int, default=[400, 400], help='Hidden dimensions')
     parser.add_argument('--modified_loss', action='store_true', help='Use the loss of section 3.2 instead of the original formulation')
     parser.add_argument('--hidden_crit_size', type=int, default=32)
-    parser.add_argument('--visualize', action='store_false', help='Save visualization of the datasets using t-sne')
+    parser.add_argument('--visualize', action='store_true', help='Save visualization of the datasets using t-sne')
     parser.add_argument('--use_cuda', action='store_true', help='Use gpu')
     parser.add_argument('--optimizer', type=str, default='adams', help='The optimizer used for updating the distribution parameters. Include Adams and SGD')
     args = parser.parse_args()
 
     argsdict = args.__dict__
-    print("=======================================================================================================================================")
+    print("============================================================================================================================")
     print(argsdict)
-    print("=======================================================================================================================================")
+    print("============================================================================================================================")
     if argsdict['divergence']=='all':
         divergence=['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon','alpha_div']
         for dd in divergence:
