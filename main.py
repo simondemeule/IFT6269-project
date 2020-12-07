@@ -11,6 +11,7 @@ import random
 import matplotlib.pyplot as plt
 import ast
 from plotting import plot_divergence_training, plot_divergence_other, plot_real_fake_training, visualize_tsne
+from single_step_SGD import *
 
 # utility data structure for storing divergence data
 class DivergenceData:
