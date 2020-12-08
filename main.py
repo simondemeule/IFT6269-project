@@ -59,7 +59,7 @@ def run_exp(argsdict):
     train_loaderq, valid_loader, test_loader = get_data_q(argsdict)
     print(device)
     generator = Generator(image_shape, hidden_dim[0], hidden_dim[1], z_dim, encoding, argsdict).to(device)
-    critic = Critic(argsdict['Gauss_size'], 64, 64).to(device)
+    critic = Critic(argsdict['Gauss_size'], argsdict['crit_size'], argsdict['crit_size']).to(device)
 
     optim_critic = optim.Adam(critic.parameters(), lr=lr)#, betas=(beta1, beta2))
     optim_generator = optim.SGD(generator.parameters(), lr=lr)#, betas=(beta1, beta2))
@@ -134,8 +134,15 @@ def run_exp(argsdict):
             print(f"generated mu: {generator.mu}, generated sigma: {generator.sigma}")
             print(f"f divergence {losses.AnalyticDiv(generator.mu.unsqueeze(0), argsdict['mus'], generator.sigma.unsqueeze(0), argsdict['sigma'])}")
         else:
+            #TODO SOMEWHERE RANDOM IS RESET EACH EPOCH
             print(f"generated mu: {argsdict['musq']}, generated sigma: {argsdict['sigmaq']}")
             print(f"f divergence {losses.AnalyticDiv(argsdict['musq'], argsdict['mus'], argsdict['sigmaq'], argsdict['sigma'])}")
+            muEst=torch.mean(real_img, dim=0).unsqueeze(0)
+            stdEst=torch.var(real_img, unbiased=True, dim=0).unsqueeze(0)
+            muhatEst=torch.mean(fake_img, dim=0).unsqueeze(0)
+            stdhatEst=torch.var(fake_img, unbiased=True, dim=0).unsqueeze(0)
+            print(f"Real f divergence {losses.AnalyticDiv(muhatEst, muEst, stdhatEst, stdEst)}")
+
         losses_Generator.append(np.mean(G_losses))
         losses_Discriminator.append(np.mean(D_losses))
         real_statistics.append(np.mean(real_stat))
@@ -161,7 +168,7 @@ def run_exp(argsdict):
                   
     # plot_losses(argsdict, n_iter)
 
-    return -np.mean(D_losses), losses.AnalyticDiv(argsdict['musq'], argsdict['mus'], argsdict['sigmaq'], argsdict['sigma'])
+    return -np.mean(D_losses), losses.AnalyticDiv(argsdict['musq'], argsdict['mus'], argsdict['sigmaq'], argsdict['sigma']), losses.AnalyticDiv(muhatEst, muEst, stdhatEst, stdEst)
 
 #BS: 500: 0.4703 vs 0.44315
 #BS: 5000
@@ -171,7 +178,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
     parser.add_argument('--dataset', type=str, default='Gaussian',
                         help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
-    parser.add_argument('--divergence', type=str, default='total_variation',
+    parser.add_argument('--divergence', type=str, default='forward_kl',
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div or all')
     parser.add_argument('--Gauss_size', type=int, default=1, help='The size of the Gaussian we generate')
     parser.add_argument('--number_gaussians', type=int, default='1', help='The number of Gaussian we generate')
@@ -182,9 +189,12 @@ if __name__ == '__main__':
     parser.add_argument('--nb_epoch', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=500, help='batch size for training and testing')
     parser.add_argument('--modified_loss', action='store_true', help='use the loss of section 3.2 instead of the original formulation')
-    parser.add_argument('--hidden_crit_size', type=int, default=32)
+    parser.add_argument('--test_capacity', action='store_true', help='Test the lower bound vs capacity')
+    parser.add_argument('--test_dimensions', action='store_true', help='Test the lower bound vs dimensions')
+    parser.add_argument('--crit_size', type=int, default=32)
     parser.add_argument('--visualize', action='store_true', help='save visualization of the datasets using t-sne')
     parser.add_argument('--use_cuda', action='store_true', help='Use gpu')
+    parser.add_argument('--fix_seed', action='store_true', help='Fix the seed')
     parser.add_argument('--train_generator', action='store_true', help='train the generator to match the distribution')
     args = parser.parse_args()
 
@@ -197,16 +207,38 @@ if __name__ == '__main__':
             run_exp(argsdict)
     elif argsdict['train_generator']:
         run_exp(argsdict)
-    else:
+    elif argsdict['test_dimensions']:
         estimated=[]
         true=[]
-        for bs in [5, 25, 50, 100, 500, 1000, 5000, 10000, 50000]:
-            argsdict['batch_size']=bs
+        sampled=[]
+        arr=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        for num_dim in arr:
+            argsdict['batch_size']=1000
             argsdict['nb_epoch']=25
-            argsdict['dataset_size']=bs*20
-            print(bs)
-            Estimated, trueDiv=run_exp(argsdict)
+            argsdict['dataset_size']=argsdict['batch_size']*20
+            argsdict['Gauss_size']=num_dim
+            print(num_dim)
+            Estimated, trueDiv, sampledDiv=run_exp(argsdict)
             estimated.append(Estimated.item())
             true.append(trueDiv.item())
-            with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/MaxDiffVaryingTotalSizeDS20.txt", "w") as f:
-                    json.dump({"Estimated":estimated, "True":true, "batch_size":[5, 25, 50, 100, 500, 1000, 5000, 10000, 50000]}, f)
+            sampled.append(sampledDiv.item())
+            with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/LowerBoundVsDim.txt", "w") as f:
+                    json.dump({"Estimated":estimated, "True":true, "Sampled":sampled, "num_dim":arr}, f)
+    elif argsdict['test_capacity']:
+        estimated=[]
+        true=[]
+        sampled=[]
+        arr=[10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200]
+        for crit_size in arr:
+            argsdict['batch_size']=1000
+            argsdict['nb_epoch']=25
+            argsdict['dataset_size']=argsdict['batch_size']*20
+            argsdict['Gauss_size']=10
+            argsdict['crit_size']=crit_size
+            print(crit_size)
+            Estimated, trueDiv, sampledDiv=run_exp(argsdict)
+            estimated.append(Estimated.item())
+            true.append(trueDiv.item())
+            sampled.append(sampledDiv.item())
+            with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/LowerBoundVsCapacity.txt", "w") as f:
+                    json.dump({"Estimated":estimated, "True":true, "Sampled":sampled, "crit_size":arr}, f)

@@ -122,7 +122,8 @@ def get_data(argsdict):
 
 def get_data_q(argsdict):
     """ Load data for binared MNIST """
-    torch.manual_seed(3435)
+    if argsdict['fix_seed']:
+        torch.manual_seed(3435)
 
     BATCH_SIZE=argsdict['batch_size']
 
