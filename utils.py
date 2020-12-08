@@ -3,6 +3,15 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import random    
+import os.path
+
+def find_last_run_index(dataset, divergence):
+    """ Finds the index of the last finished run, for a specific dataset and divergence """
+    run = 0
+    while os.path.isdir(f"experiments/{dataset}/{divergence}/{run:0>3}"):
+        run += 1
+    # returns -1 if no files are found starting at zero
+    return run - 1
 
 def to_var(x):
     """ Make a tensor cuda-erized and requires gradient """
@@ -18,7 +27,7 @@ def get_data(argsdict):
     """ Load data for binared MNIST """
     torch.manual_seed(3435)
 
-    BATCH_SIZE=argsdict['batch_size']
+    BATCH_SIZE = argsdict['batch_size']
 
     normalize = transforms.Normalize(mean=[0.5, 0.5, 0.5],
                                      std=[0.5, 0.5, 0.5])
@@ -53,6 +62,7 @@ def get_data(argsdict):
         train = torch.utils.data.TensorDataset(train_img, train_label)
         val = torch.utils.data.TensorDataset(val_img, val_label)
         test = torch.utils.data.TensorDataset(test_img, test_label)
+
     elif argsdict['dataset']=="CelebA":
         train_dataset = datasets.CelebA(root='data/',
                                        split='train',
@@ -62,6 +72,7 @@ def get_data(argsdict):
         test_dataset = datasets.CelebA(root='data/',
                                       split='valid',
                                       transform=transforms.ToTensor())
+                                      
     elif argsdict['dataset']=="CIFAR":
         train = datasets.CIFAR10(root='data/',
                                        train=True,
@@ -75,17 +86,16 @@ def get_data(argsdict):
         test = datasets.CIFAR10(root='data/',
                                train=False,
                                transform=transforms.ToTensor())
-
-    elif argsdict['dataset']=="svhn":
+    elif argsdict['dataset']=="SVHN":
         train = datasets.SVHN('data/', split='train', download=True, transform=transform)
         val = datasets.SVHN('data/', split='train', download=True, transform=transform)
         test = datasets.SVHN('data/', split='test', download=True, transform=transform)
+
     elif argsdict['dataset']=='Gaussian':
         train_iter=GaussianGen(argsdict, BATCH_SIZE, 1000)
         val_iter=GaussianGen(argsdict, BATCH_SIZE, 1000)
         test_iter=GaussianGen(argsdict, BATCH_SIZE, 1000)
         return train_iter, val_iter, test_iter
-
 
     train_iter = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
     val_iter = torch.utils.data.DataLoader(val, batch_size=BATCH_SIZE, shuffle=True)
