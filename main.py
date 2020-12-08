@@ -29,16 +29,20 @@ def run_exp(argsdict):
     mus = []
     sigma=[]
     for gaus in range(argsdict['number_gaussians']):
-        mus.append([random.randint(-1, -1) for _ in range(argsdict['Gauss_size'])])
-        sigma.append([random.randint(1, 1) for _ in range(argsdict['Gauss_size'])])
+        # mus.append([random.randint(-1, -1) for _ in range(argsdict['Gauss_size'])])
+        mus.append([1.01 for _ in range(argsdict['Gauss_size'])])
+        # sigma.append([random.randint(1, 1) for _ in range(argsdict['Gauss_size'])])
+        sigma.append([1.8308**2 for _ in range(argsdict['Gauss_size'])])
     mus = torch.tensor(mus)
     sigma=torch.tensor(sigma)
 
     mus2 = []
     sigma2 = []
     for gaus in range(argsdict['number_gaussians']):
-        mus2.append([random.randint(1, 1) for _ in range(argsdict['Gauss_size'])])
-        sigma2.append([random.randint(4, 4) for _ in range(argsdict['Gauss_size'])])
+        mus2.append([1.0335 for _ in range(argsdict['Gauss_size'])])
+        # mus2.append([random.randint(1, 1) for _ in range(argsdict['Gauss_size'])])
+        sigma2.append([1.8236**2 for _ in range(argsdict['Gauss_size'])])
+        # sigma2.append([random.randint(4, 4) for _ in range(argsdict['Gauss_size'])])
     mus2 = torch.tensor(mus2)
     sigma2 = torch.tensor(sigma2)
     argsdict['mus'] = mus
@@ -55,113 +59,35 @@ def run_exp(argsdict):
           of memory. \n You can try setting batch_size=1 to reduce memory usage")
         device = torch.device("cpu")
 
-    train_loader, valid_loader, test_loader= get_data(argsdict)
-    train_loaderq, valid_loader, test_loader = get_data_q(argsdict)
-    print(device)
-    generator = Generator(image_shape, hidden_dim[0], hidden_dim[1], z_dim, encoding, argsdict).to(device)
-    critic = Critic(argsdict['Gauss_size'], 64, 64).to(device)
+    bb = torch.zeros((argsdict['batch_size'], argsdict['Gauss_size']))
+    # Choose random gaussian
+    for j in range(argsdict['batch_size']):
+        gaus = random.randint(0, argsdict['number_gaussians'] - 1)
+        mu = argsdict['musq'][gaus]
+        sigma = argsdict['sigmaq'][gaus]
+        point = sigma * torch.randn(argsdict['Gauss_size']) + mu
+        # print(point)
 
-    optim_critic = optim.Adam(critic.parameters(), lr=lr)#, betas=(beta1, beta2))
-    optim_generator = optim.SGD(generator.parameters(), lr=lr)#, betas=(beta1, beta2))
+        bb[j] = point
+    # print(bb[0])
+    estimatedMu=torch.mean(bb, dim=0)
+    estimatedVar=torch.std(bb, dim=0, unbiased=True)
 
     losses=Divergence(argsdict['divergence'])
-    if argsdict['use_cuda']:
-        Fix_Noise=Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim))).cuda()
-    else:
-        Fix_Noise=Variable(torch.normal(torch.zeros(25, z_dim), torch.ones(25, z_dim)))
 
-    losses_Generator=[]
-    losses_Discriminator=[]
-    real_statistics=[]
-    fake_statistics=[]
-
-    # COMPLETE TRAINING PROCEDURE
-    for epoch in range(n_iter):
-        G_losses, D_losses=[], []
-        real_stat, fake_stat=[], []
-        for i_batch, (sample_batch, sample_batch_q) in enumerate(zip(train_loader, train_loaderq)):
-            train_batch_size = argsdict['batch_size']
-            noise = Variable(
-                torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim))).cuda()
-            optim_critic.zero_grad()
-            if argsdict['use_cuda']:
-                real_img, label_batch=sample_batch[0].cuda(), sample_batch[1]
-            else:
-                real_img, label_batch=sample_batch[0], sample_batch[1]
-            fake_img=sample_batch_q[0]
-            if argsdict['train_generator']:
-                fake_img = generator(noise)
-            #Attempting loss
-            DX_score=critic(real_img)
-            DG_score=critic(fake_img)
-            loss_D=losses.D_loss(DX_score, DG_score)
-            # print(loss_D)
-            # muq, varq = estimate_mu_var(fake_img.view(-1, image_shape[1], image_shape[2]))
-            # fdiv = losses.AnalyticDiv(argsdict['musq'], argsdict['mus'], argsdict['sigmaq'], argsdict['sigma'])
-            D_losses.append(loss_D.item())
-
-            optim_generator.zero_grad()
-            if argsdict['train_generator'] and i_batch%1==0:
-                noise = Variable(
-                    torch.normal(torch.zeros(train_batch_size, z_dim), torch.ones(train_batch_size, z_dim))).cuda()
-                gen_img=generator(noise)
-                # print(gen_img.shape)
-                DG_score=critic(gen_img)
-                loss_G = losses.G_loss(DG_score)
-                # print(loss_G.item())
-                G_losses.append(loss_G.item())
-                loss_G.backward()
-                # print("HELLO")
-                # print(generator.mu.grad)
-                # print(generator.mu)
-                optim_generator.step()
-                torch.clip(generator.sigma, 0)
-
-
-            # print(D_losses)
-            fake, real=losses.RealFake(DG_score, DX_score)
-            real_stat.append(real)
-            fake_stat.append(fake)
-            loss_D.backward()
-            optim_critic.step()
-
-        print("Epoch[%d/%d], G Loss: %.4f  D Loss: %.4f"
-              % (epoch, n_iter,np.mean(G_losses), np.mean(D_losses)))
-        print(f"Classified on average {round(np.mean(real_stat), 2)} real examples correctly and {round(np.mean(fake_stat), 2)} fake examples correctly")
-        print(f"real mu: {argsdict['mus']}, real sigma: {argsdict['sigma']}")
-        # muq, varq=estimate_mu_var(img.view(-1, image_shape[1], image_shape[2]))
-        if argsdict['train_generator']:
-            print(f"generated mu: {generator.mu}, generated sigma: {generator.sigma}")
-            print(f"f divergence {losses.AnalyticDiv(generator.mu.unsqueeze(0), argsdict['mus'], generator.sigma.unsqueeze(0), argsdict['sigma'])}")
-        else:
-            print(f"generated mu: {argsdict['musq']}, generated sigma: {argsdict['sigmaq']}")
-            print(f"f divergence {losses.AnalyticDiv(argsdict['musq'], argsdict['mus'], argsdict['sigmaq'], argsdict['sigma'])}")
-        losses_Generator.append(np.mean(G_losses))
-        losses_Discriminator.append(np.mean(D_losses))
-        real_statistics.append(np.mean(real_stat))
-        fake_statistics.append(np.mean(fake_stat))
-        if argsdict['dataset']=='Gaussian':
-            #A bit hacky but reset iterators
-            train_loader, valid_loader, test_loader = get_data(argsdict)
-            train_loaderq, valid_loader, test_loader = get_data_q(argsdict)
-        with torch.no_grad():
-            img=generator(Fix_Noise)
-
-        # #Saving Images
-        # if argsdict['modified_loss']:
-        #     save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]), f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID_trick32%d.png" % epoch, nrow=5, normalize=True)
-        # else:
-        #     save_image(img.view(-1, image_shape[0], image_shape[1], image_shape[2]),f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/GRID%d.png" % epoch, nrow=5,normalize=True)
-        with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/Losses.txt", "w") as f:
-            json.dump({'Gen_Loss':losses_Generator, 'Discri_Loss':losses_Discriminator, 'real_stat':real_statistics, 'fake_stat':fake_statistics}, f)
-    
-        # Update the losses plot every 5 epochs
-        # if epoch%5==0 and epoch!=0:
-        #     plot_losses(argsdict, epoch+1, show_plot=0)
+    print(f"real mu: {argsdict['mus']}, real sigma: {argsdict['sigma']}")
+    print(f"estimated mu: {estimatedMu}, generated sigma: {estimatedVar}")
+    fdiv=losses.AnalyticDiv(estimatedMu.unsqueeze(dim=0), argsdict['mus'], estimatedVar.unsqueeze(dim=0), argsdict['sigma'])
+    Realfdiv=losses.AnalyticDiv(argsdict['musq'], argsdict['mus'], argsdict['sigmaq'], argsdict['sigma'])
+    print(f"f divergence {losses.AnalyticDiv(estimatedMu.unsqueeze(dim=0), argsdict['mus'], estimatedVar.unsqueeze(dim=0), argsdict['sigma'])}")
+    print(f"Real f divergence {losses.AnalyticDiv(argsdict['musq'], argsdict['mus'], argsdict['sigmaq'], argsdict['sigma'])}")
+    # Update the losses plot every 5 epochs
+    # if epoch%5==0 and epoch!=0:
+    #     plot_losses(argsdict, epoch+1, show_plot=0)
                   
     # plot_losses(argsdict, n_iter)
 
-    return -np.mean(D_losses), losses.AnalyticDiv(argsdict['musq'], argsdict['mus'], argsdict['sigmaq'], argsdict['sigma'])
+    return fdiv, Realfdiv
 
 #BS: 500: 0.4703 vs 0.44315
 #BS: 5000
@@ -171,7 +97,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
     parser.add_argument('--dataset', type=str, default='Gaussian',
                         help='Dataset you want to use. Options include MNIST, svhn, Gaussian, and CIFAR')
-    parser.add_argument('--divergence', type=str, default='total_variation',
+    parser.add_argument('--divergence', type=str, default='forward_kl',
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div or all')
     parser.add_argument('--Gauss_size', type=int, default=1, help='The size of the Gaussian we generate')
     parser.add_argument('--number_gaussians', type=int, default='1', help='The number of Gaussian we generate')
@@ -200,13 +126,15 @@ if __name__ == '__main__':
     else:
         estimated=[]
         true=[]
-        for bs in [5, 25, 50, 100, 500, 1000, 5000, 10000, 50000]:
+        arr=[i for i in range(5, 50000, 100)]
+        arr=[100]
+        for bs in arr:
             argsdict['batch_size']=bs
             argsdict['nb_epoch']=25
             argsdict['dataset_size']=bs*20
             print(bs)
-            Estimated, trueDiv=run_exp(argsdict)
-            estimated.append(Estimated.item())
-            true.append(trueDiv.item())
-            with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/MaxDiffVaryingTotalSizeDS20.txt", "w") as f:
-                    json.dump({"Estimated":estimated, "True":true, "batch_size":[5, 25, 50, 100, 500, 1000, 5000, 10000, 50000]}, f)
+            fake, real=run_exp(argsdict)
+            estimated.append(fake.item())
+            true.append(real.item())
+        # with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/ArtificialMC.txt", "w") as f:
+        #         json.dump({"Estimated":estimated, "True":true, "batch_size":arr}, f)
