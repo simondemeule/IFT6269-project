@@ -143,6 +143,14 @@ def run_exp(argsdict):
             stdhatEst=torch.var(fake_img, unbiased=True, dim=0).unsqueeze(0)
             print(f"Real f divergence {losses.AnalyticDiv(muhatEst, muEst, stdhatEst, stdEst)}")
 
+        #Test shifting distribution
+        if argsdict['test_shifting']:
+            # print(argsdict['musq'])
+            argsdict['musq']=torch.Tensor([[random.choice([-1, 1])*argsdict['shift']+mu for mu in argsdict['musq'][0]]])
+            # print(argsdict['musq'])
+            # print([sigma for sigma in argsdict['sigmaq']])
+            argsdict['sigmaq']=torch.Tensor([[max(0.1, random.choice([-1, 1])*argsdict['shift']+sigma) for sigma in argsdict['sigmaq'][0]]])
+
         losses_Generator.append(np.mean(G_losses))
         losses_Discriminator.append(np.mean(D_losses))
         real_statistics.append(np.mean(real_stat))
@@ -191,6 +199,7 @@ if __name__ == '__main__':
     parser.add_argument('--modified_loss', action='store_true', help='use the loss of section 3.2 instead of the original formulation')
     parser.add_argument('--test_capacity', action='store_true', help='Test the lower bound vs capacity')
     parser.add_argument('--test_dimensions', action='store_true', help='Test the lower bound vs dimensions')
+    parser.add_argument('--test_shifting', action='store_true', help='Test how the lower bound holds up vs a shifting distribution')
     parser.add_argument('--crit_size', type=int, default=32)
     parser.add_argument('--visualize', action='store_true', help='save visualization of the datasets using t-sne')
     parser.add_argument('--use_cuda', action='store_true', help='Use gpu')
@@ -242,3 +251,21 @@ if __name__ == '__main__':
             sampled.append(sampledDiv.item())
             with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/LowerBoundVsCapacity.txt", "w") as f:
                     json.dump({"Estimated":estimated, "True":true, "Sampled":sampled, "crit_size":arr}, f)
+    elif argsdict['test_shifting']:
+        estimated = []
+        true = []
+        sampled = []
+        arr = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+        for shift_size in arr:
+            argsdict['batch_size'] = 1000
+            argsdict['nb_epoch'] = 25
+            argsdict['dataset_size'] = argsdict['batch_size'] * 20
+            argsdict['Gauss_size'] = 5
+            argsdict['shift']=shift_size
+            print(shift_size)
+            Estimated, trueDiv, sampledDiv = run_exp(argsdict)
+            estimated.append(Estimated.item())
+            true.append(trueDiv.item())
+            sampled.append(sampledDiv.item())
+            with open(f"{argsdict['dataset']}_IMGS/{argsdict['divergence']}/LowerBoundVsShiftingDist.txt", "w") as f:
+                json.dump({"Estimated": estimated, "True": true, "Sampled": sampled, "Shift": arr}, f)
