@@ -446,28 +446,28 @@ def plot_mural(dataset, divergences, runs, epoch_total, epoch_increment, epoch_s
             continue
         for epoch in range(0, epoch_total, epoch_increment):
             if os.path.exists(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png'):
-                #try:
-                grid = Image.open(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png')
-                grid = TF.to_tensor(grid).unsqueeze(0)
-                if column:
-                    grid = grid.transpose(2, 3).flip(2)
-                if mural is None:
-                    sample_size_unpadded = (
-                        int((grid.shape[2] - epoch_padding) / epoch_shape_in[0]) - epoch_padding,
-                        int((grid.shape[3] - epoch_padding) / epoch_shape_in[1]) - epoch_padding
-                    )
-                    grid_stop_index = (
-                        epoch_shape_out[0] * (sample_size_unpadded[0] + epoch_padding) + epoch_padding,
-                        epoch_shape_out[1] * (sample_size_unpadded[1] + epoch_padding) + epoch_padding
-                    )
-                    mural = grid[:, :, :grid_stop_index[0], :grid_stop_index[1]]
-                else:
-                    mural = torch.cat([mural, grid[:, :, :grid_stop_index[0], :grid_stop_index[1]]], axis=0)
-                #except:
-                #    print(f"Error while stitching mural; stopped at experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png.")
-                #    return
+                try:
+                    grid = Image.open(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png')
+                    grid = TF.to_tensor(grid).unsqueeze(0)
+                    if column:
+                        grid = grid.transpose(2, 3).flip(2)
+                    if mural is None:
+                        sample_size_unpadded = (
+                            int((grid.shape[2] - epoch_padding) / epoch_shape_in[0]) - epoch_padding,
+                            int((grid.shape[3] - epoch_padding) / epoch_shape_in[1]) - epoch_padding
+                        )
+                        grid_stop_index = (
+                            epoch_shape_out[0] * (sample_size_unpadded[0] + epoch_padding) + epoch_padding,
+                            epoch_shape_out[1] * (sample_size_unpadded[1] + epoch_padding) + epoch_padding
+                        )
+                        mural = grid[:, :, :grid_stop_index[0], :grid_stop_index[1]]
+                    else:
+                        mural = torch.cat([mural, grid[:, :, :grid_stop_index[0], :grid_stop_index[1]]], axis=0)
+                except:
+                    print(f"Error while stitching mural; stopped at experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png.")
+                    return
             else:
-                print(f"Grid for epoch {epoch} is missing; aborting. experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png does not exist.")
+                print(f"Grid for epoch {epoch} is missing; aborting. experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.svg does not exist.")
                 return
         # in normal mode, the ordering of the divergences is normal; the arguments are matched top to bottom.
         # in column mode, when rotated properly, the ordering of the divergences is reversed; the arguments are matched right to left.
