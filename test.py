@@ -1,6 +1,8 @@
 import torch
 import numpy
+from plotting import *
 
+"""
 s = 5
 m = []
 n = []
@@ -13,3 +15,6 @@ q = torch.cat([torch.flatten(x) for x in n])
 d = numpy.linalg.norm(p - q)
 
 print(d)
+"""
+
+plot_mural("MNIST", ["jensen_shannon", "total_variation"], [0, 0], 50, 5)

@@ -9,7 +9,7 @@ import numpy as np
 import json
 import random
 import matplotlib.pyplot as plt
-from plotting import plot_divergence_training, plot_divergence_other, plot_real_fake_training, plot_walk_training, visualize_tsne
+from plotting import plot_divergence_training, plot_divergence_other, plot_real_fake_training, plot_walk_training, plot_tsne
 from single_step_SGD import *
 import os.path
 
@@ -272,7 +272,7 @@ def run_exp(argsdict):
             else:
                 noise = Variable(torch.normal(torch.zeros(500, generator_latent_dimensions), torch.ones(500, generator_latent_dimensions)))
             fake_imgs = generator(noise)
-            visualize_tsne(fake_imgs, real_imgs[:500], argsdict['dataset'], argsdict['divergence'], run, epoch)
+            plot_tsne(fake_imgs, real_imgs[:500], argsdict['dataset'], argsdict['divergence'], run, epoch)
 
         with torch.no_grad():
             img = generator(Fix_Noise)
