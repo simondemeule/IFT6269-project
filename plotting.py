@@ -440,13 +440,13 @@ def plot_mural(dataset, divergences, runs, epoch_total, epoch_increment):
     epoch_views = math.floor(epoch_total / epoch_increment)
     mural = None
     for (divergence, run) in zip(divergences, runs):
-        if not os.path.exists(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID0.svg'):
-            print(f"Grid for epoch 0 is missing; skipping. experiments/{dataset}/{divergence}/{run:0>3}/GRID0.svg does not exist.")
+        if not os.path.exists(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID0.png'):
+            print(f"Grid for epoch 0 is missing; skipping. experiments/{dataset}/{divergence}/{run:0>3}/GRID0.png does not exist.")
             continue
         for epoch in range(0, epoch_total, epoch_increment):
-            if os.path.exists(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.svg'):
+            if os.path.exists(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png'):
                 try:
-                    grid = Image.open(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.svg')
+                    grid = Image.open(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png')
                     grid = TF.to_tensor(grid).unsqueeze(0)
                     if mural is None:
                         mural = grid
@@ -454,10 +454,10 @@ def plot_mural(dataset, divergences, runs, epoch_total, epoch_increment):
                     else:
                         mural = torch.cat([mural, grid], axis=0)
                 except:
-                    print(f"Error while stitching mural; stopped at experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.svg.")
+                    print(f"Error while stitching mural; stopped at experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png.")
                     return
             else:
-                print(f"Grid for epoch {epoch} is missing; aborting. experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.svg does not exist.")
+                print(f"Grid for epoch {epoch} is missing; aborting. experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png does not exist.")
                 return
 
     save_image(mural.view(-1, 3, image_shape[2], image_shape[3]), f"experiments/{dataset}/PlotMural.png", nrow=epoch_views)
