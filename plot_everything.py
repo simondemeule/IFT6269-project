@@ -18,9 +18,11 @@ for dataset in datasets_all:
             runs.append(run)
     plot_divergence_all(dataset, divergences, runs, show_plot=False)
     plot_real_fake_all(dataset, divergences, runs, show_plot=False)
+    plot_walk_all(dataset, divergences, runs, show_plot=False)
 
     # Plots that are specific to each divergence
     for (divergence, run) in zip(divergences, runs):
         plot_divergence_training(dataset, divergence, run, show_plot=False)
         plot_divergence_other(dataset, divergence, run, show_plot=False)
         plot_real_fake_training(dataset, divergence, run, show_plot=False)
+        plot_walk_training(dataset, divergence, run, show_plot=False)

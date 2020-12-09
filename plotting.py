@@ -307,6 +307,101 @@ def plot_real_fake_all(dataset, divergences, runs, show_plot=True):
     else:
         plt.show()
 
+# Plots the evolution of the parameter step length
+# This is for a single training divergence
+def plot_walk_training(dataset, divergence, run, show_plot=True):
+    try:
+        with open(f"experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt", "r") as file:
+            training = json.load(file)
+            file.close
+    except:
+        print(f"Unable to open experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt.")
+        return
+
+    epochs = [i for i in range(len(training['gen_walk']))]
+    
+    if not show_plot:
+        plt.ioff()
+
+    fig = plt.figure()
+
+    plt.plot(epochs, training['gen_walk'], label='Generator Walk', color=divergence_colors[divergence])
+    plt.plot(epochs, training['dis_walk'], ':', label='Discriminator Walk', color=divergence_colors[divergence])
+    plt.legend()
+    plt.xlabel('Epochs')
+    plt.ylabel('Step L2 Norm')
+    plt.title(f'Evolution of Step Length\n({dataset} Trained With {divergence})')
+
+    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotStatTrainingWalk.png")
+
+    if not show_plot:
+        plt.close(fig)
+    else:
+        plt.show()
+
+# Plots the evolution of the parameter step length
+# This is for a set of divergences
+def plot_walk_all(dataset, divergences, runs, show_plot=True):
+    # Generator
+    if not show_plot:
+        plt.ioff()
+
+    fig = plt.figure()
+    
+    for (divergence, run) in zip(divergences, runs):
+        try:
+            with open(f"experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt", "r") as file:
+                training = json.load(file)
+                file.close
+        except:
+            print(f"Unable to open experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt; skipping entry.\nFile may be displaced or deleted.")
+            continue
+
+        epochs = [i for i in range(len(training['gen_walk']))]
+        plt.plot(epochs, training['gen_walk'], label=divergence, color=divergence_colors[divergence])
+
+    plt.legend()
+    plt.xlabel('Epochs')
+    plt.ylabel('Step L2 Norm')
+    plt.title(f'Evolution of Generator Step Length\n({dataset} Trained With Respective Divergences)')
+
+    plt.savefig(f"experiments/{dataset}/PlotStatAllWalkGenerator.png")
+
+    if not show_plot:
+        plt.close(fig)
+    else:
+        plt.show()
+
+    # Discriminator
+    if not show_plot:
+        plt.ioff()
+
+    fig = plt.figure()
+    
+    for (divergence, run) in zip(divergences, runs):
+        try:
+            with open(f"experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt", "r") as file:
+                training = json.load(file)
+                file.close
+        except:
+            print(f"Unable to open experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt; skipping entry.\nFile may be displaced or deleted.")
+            continue
+
+        epochs = [i for i in range(len(training['dis_walk']))]
+        plt.plot(epochs, training['dis_walk'], label=divergence, color=divergence_colors[divergence])
+
+    plt.legend()
+    plt.xlabel('Epochs')
+    plt.ylabel('Step L2 Norm')
+    plt.title(f'Evolution of Discriminator Step Length\n({dataset} Trained With Respective Divergences)')
+
+    plt.savefig(f"experiments/{dataset}/PlotStatAllWalkDiscriminator.png")
+
+    if not show_plot:
+        plt.close(fig)
+    else:
+        plt.show()
+
 # Plots a TSNE representation
 def visualize_tsne(fake_img, real_img, dataset, divergence, run, epoch):
     # Reshaping images and concatenating
