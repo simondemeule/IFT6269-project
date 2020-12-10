@@ -336,7 +336,7 @@ if __name__ == '__main__':
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div, piecewise or all')
     parser.add_argument('--divergence_all_other', action='store_true',
                         help='Logs all other divergences for comparaison')
-    parser.add_argument('--parameter_walk', action='store_false', help='Log the L2 norm of the parameter change at each epoch while training')
+    parser.add_argument('--parameter_walk', action='store_true', help='Log the L2 norm of the parameter change at each epoch while training')
     parser.add_argument('--gaussian_size', type=int, default='2', help='The size of the Gaussian we generate')
     parser.add_argument('--gaussian_number', type=int, default='1', help='The number of Gaussian we generate')
     parser.add_argument('--epochs', type=int, default='50', help='Number of epochs to run for training')
