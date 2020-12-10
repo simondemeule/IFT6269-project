@@ -201,7 +201,8 @@ class Divergence:
                                'pearson',
                                'alpha_div',
                                'hellinger',
-                               'jensen_shannon'], \
+                               'jensen_shannon',
+                               'piecewise'], \
             'Invalid divergence.'
         if method not in ['total_variation',
                                'forward_kl',
@@ -240,6 +241,25 @@ class Divergence:
             #for alpha >1 
             alpha = 1.5
             return -(torch.mean(DX_score)-torch.mean(1./alpha*(DG_score*(alpha-1.) + 1.)**(alpha/(alpha-1)) -1./alpha ))
+        elif self.method == 'piecewise':
+            #for alpha >1
+            TxHellingerDX=1-torch.exp(DX_score)
+            TxHellingerDG=1-torch.exp(DG_score)
+            #We want falsly classified examples to have hellinger gradient = strong, and correctly to have totalVariation gradient
+            maskHellingDG=TxHellingerDG<0
+            maskTotalDG=TxHellingerDG>0
+            maskHellingDX = TxHellingerDX > 0
+            maskTotalDX = TxHellingerDX < 0
+            #Total Variation part
+            TTX=-torch.mean(0.5*torch.tanh(DX_score[maskTotalDX])) if len(DX_score[maskTotalDX])>0 else 0
+            TTG=-torch.mean(0.5*torch.tanh(DG_score[maskTotalDG])) if len(DG_score[maskTotalDG])>0 else 0
+            HellingerX=-(torch.mean(1-torch.exp(DX_score[maskHellingDX]))) if len(DX_score[maskHellingDX])>0 else 0
+            HellingerG=- torch.mean((1-torch.exp(DG_score[maskHellingDG]))/(torch.exp(DG_score[maskHellingDG]))) if len(DG_score[maskHellingDG])>0 else 0
+            # print(TTX, TTG, HellingerG, HellingerX)
+            # print(len(maskTotalDX))
+            # print(DX_score[maskTotalDX])
+            # print(TTX+TTG+HellingerX+HellingerG)
+            return TTX+TTG+HellingerX+HellingerG
 
 
 
@@ -269,6 +289,15 @@ class Divergence:
             # for alpha > 1
             alpha = 1.5
             return -torch.mean(1./alpha*(DG_score*(alpha-1.) + 1.)**(alpha/(alpha-1)) -1./alpha )
+        elif self.method == 'piecewise':
+            #for alpha >1
+            TxHellingerDG=1-torch.exp(DG_score)
+            #We want falsly classified examples to have hellinger gradient = strong, and correctly to have totalVariation gradient
+            maskHellingDG=TxHellingerDG<0
+            maskTotalDG=TxHellingerDG>0
+            TT=-torch.mean(0.5*torch.tanh(DG_score[maskTotalDG])) if len(DG_score[maskTotalDG])>0 else 0
+            Hell=-torch.mean((1-torch.exp(DG_score[maskHellingDG]))/(torch.exp(DG_score[maskHellingDG]))) if len(DG_score[maskHellingDG])>0 else 0
+            return TT+Hell
 
     #modifying the generator loss (trick 3.2) for         
     def G_loss_modified_sec_32(self, DG_score):
@@ -316,6 +345,9 @@ class Divergence:
         elif self.method == 'jensen_shannon':
             return torch.log(torch.tensor(2.))-torch.log(1+torch.exp(-score))
 
+        elif self.method == 'piecewise':
+            return 1-torch.exp(score)
+
 
     def RealFake(self, DG_score, DX_score):
         #Returns the percent of examples that were correctly classified by the discriminator
@@ -341,6 +373,10 @@ class Divergence:
 
         elif self.method == 'alpha_div':
             thresh=0
+
+        elif self.method == 'piecewise':
+            thresh=0
+
         predGen = sum([1 if pred < thresh else 0 for pred in DG_score])
         predReal = sum([0 if pred < thresh else 1 for pred in DX_score])
         GenLen=DG_score.shape[0]

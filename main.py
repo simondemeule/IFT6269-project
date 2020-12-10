@@ -152,6 +152,8 @@ def run_exp(argsdict):
             score_dg = critic(fake_img)
             training.current_dis = training.divergence.D_loss(score_dx, score_dg)
 
+            # print(training.divergence.D_loss(score_dx, score_dg))
+
             training.current_dis.backward()
             if argsdict['optimizer'] == 'SGD':
                 optim_critic.single_step(objective=-objective)
@@ -264,7 +266,7 @@ def run_exp(argsdict):
                 json.dump(info_all, file)
     
         # Update the losses plot
-        if epoch + 1 != argsdict['epochs']:
+        if epoch + 1 != argsdict['epochs'] and argsdict['plot']:
             plot_divergence_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=False)
             if argsdict["divergence_all_other"]:
                 plot_divergence_other(argsdict['dataset'], argsdict['divergence'], run, show_plot=False)
@@ -282,7 +284,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='MNIST',
                         help='Dataset you want to use. Options include MNIST, SVHN, Gaussian, and CIFAR')
     parser.add_argument('--divergence', type=str, default='total_variation',
-                        help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div or all')
+                        help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div, piecewise or all')
     parser.add_argument('--divergence_all_other', action='store_true',
                         help='Logs all other divergences for comparaison')
     parser.add_argument('--gaussian_size', type=int, default='2', help='The size of the Gaussian we generate')
@@ -299,7 +301,11 @@ if __name__ == '__main__':
     parser.add_argument('--modified_loss', action='store_true', help='Use the loss of section 3.2 instead of the original formulation')
     parser.add_argument('--visualize', action='store_true', help='Save visualization of the datasets using t-sne')
     parser.add_argument('--use_cuda', action='store_true', help='Use gpu')
+    parser.add_argument('--plot', action='store_true', help='create the plots')
     parser.add_argument('--optimizer', type=str, default='adams', help='The optimizer used for updating the distribution parameters. Include Adams and SGD')
+
+    parser.add_argument('--falseDiv', type=str, default='hellinger', help='for piecewise divergence divergence to use when Tx is lower then threshold')
+    parser.add_argument('--trueDiv', type=str, default='total_variation', help='for piecewise divergence divergence to use when Tx is higher then threshold')
     args = parser.parse_args()
 
     argsdict = args.__dict__
