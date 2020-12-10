@@ -16,11 +16,22 @@ for dataset in datasets_all:
             # It will start at zero and go up from there until no further run is found.
             divergences.append(divergence)
             runs.append(run)
+    # For training runs with different divergences, plot all losses
     plot_divergence_all(dataset, divergences, runs, show_plot=False)
+    # For training runs with different divergences, plot all real / fake statistics
     plot_real_fake_all(dataset, divergences, runs, show_plot=False)
+    # For training runs with different divergences, plot all parameter step sizes
+    plot_walk_all(dataset, divergences, runs, show_plot=False)
+    # For training runs with different divergences, plot all murals
+    plot_mural(dataset, divergences, runs, 50, 5)
 
     # Plots that are specific to each divergence
     for (divergence, run) in zip(divergences, runs):
+        # For a single training run with a specific divergence, plot losses
         plot_divergence_training(dataset, divergence, run, show_plot=False)
+        # For a single training run with a specific divergence, plot losses for all other divergences
         plot_divergence_other(dataset, divergence, run, show_plot=False)
+        # For a single training run with a specific divergence, plot real / fake statistics
         plot_real_fake_training(dataset, divergence, run, show_plot=False)
+        # For a single training run with a specific divergence, plot parameter step sizes
+        plot_walk_training(dataset, divergence, run, show_plot=False)

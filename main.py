@@ -9,7 +9,7 @@ import numpy as np
 import json
 import random
 import matplotlib.pyplot as plt
-from plotting import plot_divergence_training, plot_divergence_other, plot_real_fake_training, visualize_tsne
+from plotting import plot_divergence_training, plot_divergence_other, plot_real_fake_training, plot_walk_training, plot_tsne
 from single_step_SGD import *
 import os.path
 
@@ -44,13 +44,18 @@ class DivergenceData:
         self.log_batch_real = []
         self.log_batch_fake = []
 
-# Utility data structure for storing performance measurements of the network
-class PerformanceData:
+# Utility data structure for storing parameter walk of the network
+class WalkData:
     def __init__(self):
-        self.accumulator_walk_gen = 0
-        self.accumulator_walk_dis = 0
-        self.epoch_walk_gen = []
-        self.epoch_walk_dis = []
+        self.param_init_gen = None
+        self.param_init_dis = None
+        self.param_final_gen = None
+        self.param_final_dis = None
+        
+        self.walk_current_gen = None
+        self.walk_current_dis = None
+        self.walk_log_epoch_gen = []
+        self.walk_log_epoch_dis = []
 
 def run_exp(argsdict):
     # Give a number to this run
@@ -115,19 +120,31 @@ def run_exp(argsdict):
     else:
         Fix_Noise = Variable(torch.normal(torch.zeros(25, generator_latent_dimensions), torch.ones(25, generator_latent_dimensions)))
 
-    # divergence used for training
+    # Data for training divergence
     training = DivergenceData(argsdict['divergence'])
 
-    # other divergences, only for logging if enabled
+    # Data for ohter divergence, if enabled
     if argsdict["divergence_all_other"]:
         other = []
         for divergence_name in ['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon']:
             if divergence_name != argsdict['divergence']:
                 other.append(DivergenceData(divergence_name))
 
+    # Data for parameter walk, if enabled
+    if argsdict['parameter_walk']:
+        walk = WalkData()
+
     objective=1#Initialize objective F(\theta, \omega) in the article
     # COMPLETE TRAINING PROCEDURE
     for epoch in range(argsdict['epochs']):
+        if argsdict['parameter_walk']:
+            if epoch == 0:
+                walk.param_init_gen = torch.cat(tuple(torch.flatten(x) for x in generator.parameters())).detach().clone()
+                walk.param_init_dis = torch.cat(tuple(torch.flatten(x) for x in critic.parameters())).detach().clone()
+            else:
+                walk.param_init_gen = walk.param_final_gen
+                walk.param_init_dis = walk.param_final_dis
+
         if argsdict['visualize']:
             real_imgs = torch.zeros([num_samples, image_shape[1], image_shape[2]])
 
@@ -209,21 +226,43 @@ def run_exp(argsdict):
                     
                     item.log_batch_gen.append(item.current_gen.item())
 
-        # Finished all batches within epoch, average losses over the batches and log them, then clear the batch data
+        # Finished all batches within epoch
+
+         # Calculate parameter walk if enabled
+        if argsdict['parameter_walk']:
+            walk.param_final_gen = torch.cat(tuple(torch.flatten(x) for x in generator.parameters())).detach().clone()
+            walk.param_final_dis = torch.cat(tuple(torch.flatten(x) for x in critic.parameters())).detach().clone()
+
+            walk.walk_current_gen = float(np.linalg.norm(walk.param_final_gen - walk.param_init_gen))
+            walk.walk_current_dis = float(np.linalg.norm(walk.param_final_dis - walk.param_init_dis))
+
+            walk.walk_log_epoch_gen.append(walk.walk_current_gen)
+            walk.walk_log_epoch_dis.append(walk.walk_current_dis)
+
+        # Average losses over the batches and log them, then clear the batch data
         training.log_batch_to_epoch()
         if argsdict["divergence_all_other"]:
                 for item in other:
                     item.log_batch_to_epoch()
+
+        # Print iteration info
         if not argsdict["divergence_all_other"]:
-            print(f"Epoch {epoch:>3} of {argsdict['epochs']:<3} | Generator loss: {training.log_epoch_gen[-1]:15.3f} | Discriminator loss: {training.log_epoch_dis[-1]:15.3f} | Real statistic: {training.log_epoch_real[-1]:.2f} | Fake statistic: {training.log_epoch_fake[-1]:.2f}")
+            print(f"============================================================================================================================================================================================")
+            if not argsdict['parameter_walk']:
+                print(f"Epoch {epoch:>3} of {argsdict['epochs']:<3} | {'Generator loss:':<21}{training.log_epoch_gen[-1]:6.3f} | {'Discriminator loss:':<21}{training.log_epoch_dis[-1]:6.3f} | {'Real statistic:':<17}{training.log_epoch_real[-1]:6.2f} | {'Fake statistic:':<17}{training.log_epoch_fake[-1]:6.2f}")
+            else:
+                print(f"Epoch {epoch:>3} of {argsdict['epochs']:<3} | {'Generator loss:':<21}{training.log_epoch_gen[-1]:6.3f} | {'Discriminator loss:':<21}{training.log_epoch_dis[-1]:6.3f} | {'Real statistic:':<17}{training.log_epoch_real[-1]:6.2f} | {'Fake statistic:':<17}{training.log_epoch_fake[-1]:6.2f} | {'Generator walk:':<21}{walk.walk_current_gen:>6.3f} | {'Discriminator walk:':<21}{walk.walk_current_dis:>6.3f}")
         else:
             print(f"=================================================================================================")
-            print(f"Epoch {epoch:>3} of {argsdict['epochs']:<3}  |      Generator loss |  Discriminator loss |  Real statistic |  Fake statistic")
+            print(f"Epoch {epoch:>3} of {argsdict['epochs']:<3}  | {'Generator loss':>19} | {'Discriminator loss':>19} | {'Real statistic':>15} | {'Fake statistic':>15}")
             print(f"-------------------------------------------------------------------------------------------------")
             print(f"{training.name:<17} | {training.log_epoch_gen[-1]:19.3f} | {training.log_epoch_dis[-1]:19.3f} | {training.log_epoch_real[-1]:15.2f} | {training.log_epoch_fake[-1]:15.2f}")
             print(f"- - - - - - - - - | - - - - - - - - - - | - - - - - - - - - - | - - - - - - - - | - - - - - - - -")
             for item in other:
                 print(f"{item.name:<17} | {item.log_epoch_gen[-1]:19.3f} | {item.log_epoch_dis[-1]:19.3f} | {item.log_epoch_real[-1]:15.2f} | {item.log_epoch_fake[-1]:15.2f}")
+            if argsdict['parameter_walk']:
+                print(f"-------------------------------------------------------------------------------------------------")
+                print(f"                  *   {'Generator walk:':<19}{walk.walk_current_gen:>6.3f}     {'Discriminator walk:':<19}{walk.walk_current_dis:>6.3f}   *")
                 
         if argsdict['dataset'] == 'Gaussian':
             #A bit hacky but reset iterators
@@ -235,7 +274,7 @@ def run_exp(argsdict):
             else:
                 noise = Variable(torch.normal(torch.zeros(500, generator_latent_dimensions), torch.ones(500, generator_latent_dimensions)))
             fake_imgs = generator(noise)
-            visualize_tsne(fake_imgs, real_imgs[:500], argsdict['dataset'], argsdict['divergence'], run, epoch)
+            plot_tsne(fake_imgs, real_imgs[:500], argsdict['dataset'], argsdict['divergence'], run, epoch)
 
         with torch.no_grad():
             img = generator(Fix_Noise)
@@ -264,7 +303,11 @@ def run_exp(argsdict):
                                 "fake_stat": item.log_epoch_fake}
                     info_all.append(info_item)
                 json.dump(info_all, file)
-    
+        if argsdict["parameter_walk"]:
+            with open(f"experiments/{argsdict['dataset']}/{argsdict['divergence']}/{run:0>3}/DataParameterWalk.txt", "w") as file:
+                info = {"gen_walk": walk.walk_log_epoch_gen, "dis_walk": walk.walk_log_epoch_dis}
+                json.dump(info, file)
+
         # Update the losses plot
         if epoch + 1 != argsdict['epochs'] and argsdict['plot']:
             plot_divergence_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=False)
@@ -278,6 +321,12 @@ def run_exp(argsdict):
         plot_divergence_other(argsdict['dataset'], argsdict['divergence'], run, show_plot=True)
     plot_real_fake_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=True)
 
+    # plot_divergence_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=show_plot)
+    # if argsdict["divergence_all_other"]:
+    #     plot_divergence_other(argsdict['dataset'], argsdict['divergence'], run, show_plot=show_plot)
+    # plot_real_fake_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=show_plot)
+    # if argsdict["parameter_walk"]:
+    #     plot_walk_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=show_plot)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Project for IFT6269 on fgans')
@@ -287,6 +336,7 @@ if __name__ == '__main__':
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div, piecewise or all')
     parser.add_argument('--divergence_all_other', action='store_true',
                         help='Logs all other divergences for comparaison')
+    parser.add_argument('--parameter_walk', action='store_false', help='Log the L2 norm of the parameter change at each epoch while training')
     parser.add_argument('--gaussian_size', type=int, default='2', help='The size of the Gaussian we generate')
     parser.add_argument('--gaussian_number', type=int, default='1', help='The number of Gaussian we generate')
     parser.add_argument('--epochs', type=int, default='50', help='Number of epochs to run for training')
@@ -309,9 +359,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     argsdict = args.__dict__
-    print("============================================================================================================================")
+    print("=================================================================================================")
     print(argsdict)
-    print("============================================================================================================================")
+    print("=================================================================================================")
     if argsdict['divergence'] == 'all':
         divergences = ['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon','alpha_div']
         for divergence in divergences:

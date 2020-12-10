@@ -9,14 +9,27 @@ import pandas as pd
 from sklearn.manifold import TSNE
 import seaborn as sns
 
+# Mural related
+from torchvision.utils import save_image
+import torchvision.transforms.functional as TF
+from PIL import Image
+import torch
+import math
+
 divergence_names = ['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon']
-divergence_colors = {   'total_variation': 'blue',
-                        'forward_kl': 'orange',
-                        'reverse_kl': 'purple',
-                        'pearson': 'green',
-                        'hellinger': 'pink',
-                        'jensen_shannon': 'gray',
-                        'alpha_div': 'red'}
+
+divergence_colors = {   'total_variation':  'blue',
+                        'forward_kl':       'orange',
+                        'reverse_kl':       'purple',
+                        'pearson':          'green',
+                        'hellinger':        'pink',
+                        'jensen_shannon':   'gray',
+                        'alpha_div':        'red'}
+
+image_shapes = {'SVHN':         (3, 32, 32),
+                'CIFAR':        (3, 32,32),
+                'MNIST':        (1, 28, 28),
+                'Gaussian':     (1, 28, 28)}
 
 # Converts the older Losses.txt format to the newer DataDivergenceTraining.txt format
 def convert_from_legacy(dataset, run, divergence):
@@ -307,8 +320,103 @@ def plot_real_fake_all(dataset, divergences, runs, show_plot=True):
     else:
         plt.show()
 
+# Plots the evolution of the parameter step length
+# This is for a single training divergence
+def plot_walk_training(dataset, divergence, run, show_plot=True):
+    try:
+        with open(f"experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt", "r") as file:
+            training = json.load(file)
+            file.close
+    except:
+        print(f"Unable to open experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt.")
+        return
+
+    epochs = [i for i in range(len(training['gen_walk']))]
+    
+    if not show_plot:
+        plt.ioff()
+
+    fig = plt.figure()
+
+    plt.plot(epochs, training['gen_walk'], label='Generator Walk', color=divergence_colors[divergence])
+    plt.plot(epochs, training['dis_walk'], ':', label='Discriminator Walk', color=divergence_colors[divergence])
+    plt.legend()
+    plt.xlabel('Epochs')
+    plt.ylabel('Step L2 Norm')
+    plt.title(f'Evolution of Step Length\n({dataset} Trained With {divergence})')
+
+    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotStatTrainingWalk.png")
+
+    if not show_plot:
+        plt.close(fig)
+    else:
+        plt.show()
+
+# Plots the evolution of the parameter step length
+# This is for a set of divergences
+def plot_walk_all(dataset, divergences, runs, show_plot=True):
+    # Generator
+    if not show_plot:
+        plt.ioff()
+
+    fig = plt.figure()
+    
+    for (divergence, run) in zip(divergences, runs):
+        try:
+            with open(f"experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt", "r") as file:
+                training = json.load(file)
+                file.close
+        except:
+            print(f"Unable to open experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt; skipping entry.\nFile may be displaced or deleted.")
+            continue
+
+        epochs = [i for i in range(len(training['gen_walk']))]
+        plt.plot(epochs, training['gen_walk'], label=divergence, color=divergence_colors[divergence])
+
+    plt.legend()
+    plt.xlabel('Epochs')
+    plt.ylabel('Step L2 Norm')
+    plt.title(f'Evolution of Generator Step Length\n({dataset} Trained With Respective Divergences)')
+
+    plt.savefig(f"experiments/{dataset}/PlotStatAllWalkGenerator.png")
+
+    if not show_plot:
+        plt.close(fig)
+    else:
+        plt.show()
+
+    # Discriminator
+    if not show_plot:
+        plt.ioff()
+
+    fig = plt.figure()
+    
+    for (divergence, run) in zip(divergences, runs):
+        try:
+            with open(f"experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt", "r") as file:
+                training = json.load(file)
+                file.close
+        except:
+            print(f"Unable to open experiments/{dataset}/{divergence}/{run:0>3}/DataParameterWalk.txt; skipping entry.\nFile may be displaced or deleted.")
+            continue
+
+        epochs = [i for i in range(len(training['dis_walk']))]
+        plt.plot(epochs, training['dis_walk'], label=divergence, color=divergence_colors[divergence])
+
+    plt.legend()
+    plt.xlabel('Epochs')
+    plt.ylabel('Step L2 Norm')
+    plt.title(f'Evolution of Discriminator Step Length\n({dataset} Trained With Respective Divergences)')
+
+    plt.savefig(f"experiments/{dataset}/PlotStatAllWalkDiscriminator.png")
+
+    if not show_plot:
+        plt.close(fig)
+    else:
+        plt.show()
+
 # Plots a TSNE representation
-def visualize_tsne(fake_img, real_img, dataset, divergence, run, epoch):
+def plot_tsne(fake_img, real_img, dataset, divergence, run, epoch):
     # Reshaping images and concatenating
     imgs = torch.cat([fake_img.reshape(fake_img.shape[0], -1).cpu().detach(), real_img.reshape(real_img.shape[0], -1).cpu().detach()])
     y = ['Generated' for _ in range(fake_img.shape[0])] + ['Real' for _ in range(real_img.shape[0])]
@@ -325,3 +433,31 @@ def visualize_tsne(fake_img, real_img, dataset, divergence, run, epoch):
     sns_plot.figure.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/TSNEVIZ%d.png" % epoch)
     # Closing because I hate matplotlib its a piece of garbage
     plt.close(sns_plot.figure)
+
+# Plots mural from decoded latent space samples
+def plot_mural(dataset, divergences, runs, epoch_total, epoch_increment):
+    mural = None
+    epoch_views = math.floor(epoch_total / epoch_increment)
+    mural = None
+    for (divergence, run) in zip(divergences, runs):
+        if not os.path.exists(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID0.png'):
+            print(f"Grid for epoch 0 is missing; skipping. experiments/{dataset}/{divergence}/{run:0>3}/GRID0.png does not exist.")
+            continue
+        for epoch in range(0, epoch_total, epoch_increment):
+            if os.path.exists(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png'):
+                try:
+                    grid = Image.open(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png')
+                    grid = TF.to_tensor(grid).unsqueeze(0)
+                    if mural is None:
+                        mural = grid
+                        image_shape = grid.shape
+                    else:
+                        mural = torch.cat([mural, grid], axis=0)
+                except:
+                    print(f"Error while stitching mural; stopped at experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png.")
+                    return
+            else:
+                print(f"Grid for epoch {epoch} is missing; aborting. experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png does not exist.")
+                return
+
+    save_image(mural.view(-1, 3, image_shape[2], image_shape[3]), f"experiments/{dataset}/Mural.png", nrow=epoch_views)
