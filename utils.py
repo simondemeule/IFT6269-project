@@ -4,6 +4,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import random    
 import os.path
+import numpy as np
 
 def find_last_run_index(dataset, divergence):
     """ Finds the index of the last finished run, for a specific dataset and divergence """
@@ -102,6 +103,13 @@ def get_data(argsdict):
     test_iter = torch.utils.data.DataLoader(test, batch_size=BATCH_SIZE, shuffle=True)
 
     return train_iter, val_iter, test_iter, len(train)
+
+def anneal_function(anneal_function, step, k, x0):
+    if anneal_function == 'logistic':
+        return float(1 / (1 + np.exp(-k * (step - x0))))
+    elif anneal_function == 'linear':
+        return min(1, step / x0)
+
 
 def GaussianGen(argsdict, batch_size, Total):
     #Todo possibly a more efficient way to do this

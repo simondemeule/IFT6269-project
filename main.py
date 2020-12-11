@@ -2,7 +2,7 @@ import torch
 from torch import optim
 from torch.autograd import Variable
 from torchvision.utils import save_image
-from utils import get_data, find_last_run_index
+from utils import get_data, find_last_run_index, anneal_function
 from f_gan import Generator, Critic, Divergence
 import argparse
 import numpy as np
@@ -191,6 +191,10 @@ def run_exp(argsdict):
                     item.current_real, item.current_fake = item.divergence.RealFake(score_dx, score_dg)
                     item.log_batch_real.append(item.current_real)
                     item.log_batch_fake.append(item.current_fake)
+            # clipping=anneal_function('logistic', epoch, 0.5, argsdict['epochs']/4)
+            # # print(clipping)
+            # for p in critic.parameters():
+            #     p.data.clamp_(-clipping, clipping)
 
             # Train generator
             # Compute generator loss and real / fake statistic for training divergence
@@ -229,6 +233,7 @@ def run_exp(argsdict):
         # Finished all batches within epoch
 
          # Calculate parameter walk if enabled
+        # print(clipping)
         if argsdict['parameter_walk']:
             walk.param_final_gen = torch.cat(tuple(torch.flatten(x) for x in generator.parameters())).detach().clone()
             walk.param_final_dis = torch.cat(tuple(torch.flatten(x) for x in critic.parameters())).detach().clone()
@@ -344,10 +349,13 @@ if __name__ == '__main__':
     parser.add_argument('--learn_rate', type=float, default='1e-4', help='Learning rate')
     parser.add_argument('--beta_1', type=float, default='0.5', help='Beta 1')
     parser.add_argument('--beta_2', type=float, default='0.9', help='Beta 2')
+
+    parser.add_argument('--use_cnn_generator', action='store_true', help='whether to use the cnn generator or the linear one')
     parser.add_argument('--generator_latent_dimensions', type=int, default='25', help='Latent dimensions of generator (Int)')
     parser.add_argument('--generator_hidden_dimensions', nargs='+', type=int, default=[200, 200], help='Hidden dimensions of generator (Int array)')
     parser.add_argument('--discriminator_hidden_dimensions', nargs='+', type=int, default=[32, 32], help='Hidden dimensions of discriminator (Int array)')
     parser.add_argument('--discriminator_updates', type=int, default='1', help='Number of critic updates per generator update')
+
     parser.add_argument('--modified_loss', action='store_true', help='Use the loss of section 3.2 instead of the original formulation')
     parser.add_argument('--visualize', action='store_true', help='Save visualization of the datasets using t-sne')
     parser.add_argument('--use_cuda', action='store_true', help='Use gpu')

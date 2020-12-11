@@ -100,8 +100,41 @@ class Generator(nn.Module):
             x = torch.sigmoid(x)
         x.reshape(x.shape[0], self.image_size[0],self.image_size[1],self.image_size[2])
         return x
-
 #
+# class Generator(nn.Module):
+#     def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding):
+#
+#         super(Generator, self).__init__()
+#         x = [nn.Linear(z_dim, hidden_dim2),
+#              nn.BatchNorm1d(hidden_dim2),
+#              nn.ReLU(inplace=True),
+#              # nn.Linear(hidden_dim, hidden_dim2),
+#              # nn.BatchNorm1d(hidden_dim2),
+#              # nn.ReLU(inplace=True),
+#              nn.Linear(hidden_dim2, 625)]
+#         self.linear=nn.Sequential(*x)
+#         cnn=[nn.ConvTranspose2d(1, 1, 2, 1, 0),
+#              nn.ReLU(True),
+#              nn.BatchNorm2d(1),
+#              nn.ConvTranspose2d(1, 1, 3, 1, 0)]
+#         self.cnn=nn.Sequential(*cnn)
+#         self.lastLayer=nn.Linear(784, image_size[0]*image_size[1]*image_size[2])
+#         self.encoding=encoding
+#     def forward(self, z):
+#         z = to_cuda(z.view(z.shape[0], -1))
+#         # z=z.view(z.shape[0], z.shape[1], 1, 1)
+#         z=self.linear(z)
+#         z=z.view(z.shape[0], 1, 25, 25)
+#         z=self.cnn(z)
+#         z = to_cuda(z.view(z.shape[0], -1))
+#         # print(z.shape)
+#         z=self.lastLayer(z)
+#         if self.encoding == 'tanh':
+#             z = torch.tanh(z)
+#         elif self.encoding=='sigmoid':
+#             z = torch.sigmoid(z)
+#         return z
+# #
 class Critic(nn.Module):
     """ Discriminator. Input is an image (real or generated),
     output is P(generated).
@@ -242,24 +275,27 @@ class Divergence:
             alpha = 1.5
             return -(torch.mean(DX_score)-torch.mean(1./alpha*(DG_score*(alpha-1.) + 1.)**(alpha/(alpha-1)) -1./alpha ))
         elif self.method == 'piecewise':
+            return -(torch.mean(1 - torch.exp(DX_score)) \
+                     - torch.mean((1 - torch.exp(DG_score)) / (torch.exp(DG_score))))
             #for alpha >1
             TxHellingerDX=1-torch.exp(DX_score)
             TxHellingerDG=1-torch.exp(DG_score)
             #We want falsly classified examples to have hellinger gradient = strong, and correctly to have totalVariation gradient
-            maskHellingDG=TxHellingerDG<0
-            maskTotalDG=TxHellingerDG>0
-            maskHellingDX = TxHellingerDX > 0
-            maskTotalDX = TxHellingerDX < 0
+            maskHellingDG=TxHellingerDG>0
+            maskTotalDG=TxHellingerDG<0
+            maskHellingDX = TxHellingerDX < 0
+            maskTotalDX = TxHellingerDX > 0
             #Total Variation part
-            TTX=-torch.mean(0.5*torch.tanh(DX_score[maskTotalDX])) if len(DX_score[maskTotalDX])>0 else 0
-            TTG=-torch.mean(0.5*torch.tanh(DG_score[maskTotalDG])) if len(DG_score[maskTotalDG])>0 else 0
-            HellingerX=-(torch.mean(1-torch.exp(DX_score[maskHellingDX]))) if len(DX_score[maskHellingDX])>0 else 0
-            HellingerG=- torch.mean((1-torch.exp(DG_score[maskHellingDG]))/(torch.exp(DG_score[maskHellingDG]))) if len(DG_score[maskHellingDG])>0 else 0
+            TTX=-torch.log(torch.tensor(2.))-torch.log((1+torch.exp(-DX_score[maskTotalDX]))) if len(DX_score[maskTotalDX])>0 else torch.zeros(1).cuda()
+            TTG=--(torch.log(torch.tensor(2.))-torch.exp(torch.log(torch.tensor(2.))\
+                        -torch.log((1+torch.exp(-DG_score[maskTotalDG]))))) if len(DG_score[maskTotalDG])>0 else torch.zeros(1).cuda()
+            HellingerX=-(1-torch.exp(DX_score[maskHellingDX])) if len(DX_score[maskHellingDX])>0 else torch.zeros(1).cuda()
+            HellingerG=-(1-torch.exp(DG_score[maskHellingDG]))/(torch.exp(DG_score[maskHellingDG])) if len(DG_score[maskHellingDG])>0 else torch.zeros(1).cuda()
             # print(TTX, TTG, HellingerG, HellingerX)
             # print(len(maskTotalDX))
             # print(DX_score[maskTotalDX])
             # print(TTX+TTG+HellingerX+HellingerG)
-            return TTX+TTG+HellingerX+HellingerG
+            return torch.mean(torch.cat([TTX,TTG,HellingerX,HellingerG]))
 
 
 
@@ -293,11 +329,14 @@ class Divergence:
             #for alpha >1
             TxHellingerDG=1-torch.exp(DG_score)
             #We want falsly classified examples to have hellinger gradient = strong, and correctly to have totalVariation gradient
-            maskHellingDG=TxHellingerDG<0
-            maskTotalDG=TxHellingerDG>0
-            TT=-torch.mean(0.5*torch.tanh(DG_score[maskTotalDG])) if len(DG_score[maskTotalDG])>0 else 0
-            Hell=-torch.mean((1-torch.exp(DG_score[maskHellingDG]))/(torch.exp(DG_score[maskHellingDG]))) if len(DG_score[maskHellingDG])>0 else 0
-            return TT+Hell
+            thresh=0
+            maskHellingDG=DG_score>thresh
+            maskTotalDG=DG_score<thresh
+            TT=- -(torch.log(torch.tensor(2.))-torch.exp(torch.log(torch.tensor(2.))\
+                        -torch.log((1+torch.exp(-DG_score[maskTotalDG]))))) if len(DG_score[maskTotalDG])>0 else torch.zeros(1).cuda()
+            Hell=-(1-torch.exp(DG_score[maskHellingDG]))/(torch.exp(DG_score[maskHellingDG])) if len(DG_score[maskHellingDG])>0 else torch.zeros(1).cuda()
+            return torch.mean(torch.cat([TT,Hell]))
+            # return -torch.mean((1 - torch.exp(DG_score)) / (torch.exp(DG_score)))
 
     #modifying the generator loss (trick 3.2) for         
     def G_loss_modified_sec_32(self, DG_score):
