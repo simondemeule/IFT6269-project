@@ -7,12 +7,12 @@ div=['total_variation', 'forward_kl', 'hellinger', 'jensen_shannon', 'pearson', 
 # div=['forward_kl', 'hellinger', 'pearson', 'reverse_kl']
 
 folder='experiments/MNIST'
-suffixe='NewUpdate'
+suffixe='Pretty_three'
 
 mural=None
 
 for dd in div:
-    for i in range(0, 50, 5):
+    for i in [0,5,49]:
         for run in range(50, -1, -1):
             try:
                 ff=Image.open(f'{folder}/{dd}/{run:0>3}/GRID{i}.png')
@@ -26,4 +26,4 @@ for dd in div:
                 continue
 
 
-save_image(mural.view(-1, 3, 152, 152), f"experiments/MNIST/ComparisonOfDivergence{suffixe}.png", nrow=10)
+save_image(mural.view(-1, 3, 152, 152), f"experiments/MNIST/ComparisonOfDivergence{suffixe}.png", nrow=3)
