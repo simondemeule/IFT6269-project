@@ -83,9 +83,9 @@ class Generator(nn.Module):
         x = [nn.Linear(z_dim, hidden_dim2),
              nn.BatchNorm1d(hidden_dim2),
              nn.ReLU(inplace=True),
-             # nn.Linear(hidden_dim, hidden_dim2),
-             # nn.BatchNorm1d(hidden_dim2),
-             # nn.ReLU(inplace=True),
+             nn.Linear(hidden_dim, hidden_dim2),
+             nn.BatchNorm1d(hidden_dim2),
+             nn.ReLU(inplace=True),
              nn.Linear(hidden_dim2, image_size[0]*image_size[1]*image_size[2])]
 
         self.x = nn.Sequential(*x)
