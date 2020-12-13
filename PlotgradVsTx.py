@@ -4,28 +4,32 @@ from f_gan import Divergence
 import matplotlib.pyplot as plt
 import numpy as np
 
-fprim1=[0,1,0,0,0,0]
+fprim1=[0,1,0,0,0,0, 0]
 
 variable2=torch.zeros(1, requires_grad=True)
 
 x=[i/10 for i in range (-50, 50, 1)]
 y=[]
 
+argdict={'trueDiv':'forward_kl', 'falseDiv':'forward_kl'}
+
 fig = plt.figure()
 plt.ioff()
 # zip(['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon'],['blue','orange','purple','green','pink','gray'])
-for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon'],['blue','orange','purple','green','pink','gray'], fprim1):
+for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon', 'piecewise'],['blue','orange','purple','green','pink','gray', 'black'], fprim1):
     y = []
-    div = Divergence(loss)
-    variable = torch.zeros(1, requires_grad=True)
+    div = Divergence(loss, argdict)
+    variable = torch.zeros(1, requires_grad=True).cuda()
     for i in x:
-        variable = torch.zeros(1, requires_grad=True) + i
+        variable = torch.zeros(1, requires_grad=True).cuda() + i
         # variable2 = torch.zeros(1, requires_grad=True)+j
         lg = div.G_loss(variable)
+        # print(loss)
+        # print(lg)
         grad = torch.autograd.grad(lg, variable)
-        y.append(grad[0])
+        y.append(grad[0].cpu())
         if i==fprim:
-            plt.scatter(i, grad[0], color=color)
+            plt.scatter(i, grad[0].cpu(), color=color)
 
 
     plt.plot(x, y, label=loss, color=color)
@@ -38,17 +42,19 @@ axes = plt.gca()
 # axes.set_xlim([xmin,xmax])
 axes.set_ylim([-10,10])
 plt.title('Gradient of the generator vs V(x)')
-plt.savefig(f"Grad_Graphs/GradientofGeneratorVsVx.png")
+plt.savefig(f"Grad_Graphs/GradientofGeneratorVsVx.svg")
 plt.close(fig)
 
 
+fprim1=[0,1,0,0,0,0, 0]
 
 x=[i/10 for i in range (-50, 50, 1)]
 #Discriminator
 fig = plt.figure()
 plt.ioff()
 # zip(['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon'],['blue','orange','purple','green','pink','gray'])
-for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon'],['blue','orange','purple','green','pink','gray'], fprim1):
+for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon', 'piecewise'],['blue','orange','purple','green','pink','gray', 'black'], fprim1):
+    print(loss)
     y = []
     div = Divergence(loss)
     variable = torch.zeros(1, requires_grad=True)
@@ -102,6 +108,8 @@ for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pea
         title='Hellinger'
     elif loss=='jensen_shannon':
         title='Jensen Shannon'
+    elif loss=='piecewise':
+        title='Piecewise'
     plt.title(f'Gradient of the discriminator vs V(x) for the {title} divergence')
-    plt.savefig(f"Grad_Graphs/GradientOfDiscriminator{loss}.png")
+    plt.savefig(f"Grad_Graphs/GradientOfDiscriminator{loss}.svg")
     plt.close(fig)

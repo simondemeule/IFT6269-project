@@ -78,7 +78,7 @@ def plot_divergence_training(dataset, divergence, run, show_plot=True):
     plt.ylabel('Loss')
     plt.title(f'Evolution of Training Generator and Discriminator Losses\n({dataset} Trained With {divergence})')
 
-    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotDivergenceTraining.png")
+    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotDivergenceTraining.svg")
 
     if not show_plot:
         plt.close(fig)
@@ -121,7 +121,7 @@ def plot_divergence_other(dataset, divergence, run, show_plot=True):
     plt.ylabel('Loss')
     plt.title(f'Evolution of Other Generator Losses\n({dataset} Trained With {divergence})')
 
-    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotDivergenceOtherGenerator.png")
+    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotDivergenceOtherGenerator.svg")
 
     if show_plot == 0:
         plt.close(fig)
@@ -142,7 +142,7 @@ def plot_divergence_other(dataset, divergence, run, show_plot=True):
     plt.ylabel('Loss')
     plt.title(f'Evolution of Other Discriminator Losses\n({dataset} Trained With {divergence})')
 
-    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotDivergenceOtherDiscriminator.png")
+    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotDivergenceOtherDiscriminator.svg")
 
     if show_plot == 0:
         plt.close(fig)
@@ -175,7 +175,7 @@ def plot_divergence_all(dataset, divergences, runs, show_plot=True):
     plt.ylabel('Loss')
     plt.title(f'Evolution of All Generator Losses\n({dataset} Trained With Respective Divergences)')
 
-    plt.savefig(f"experiments/{dataset}/PlotDivergenceAllGenerator.png")
+    plt.savefig(f"experiments/{dataset}/PlotDivergenceAllGenerator.svg")
 
     if not show_plot:
         plt.close(fig)
@@ -205,7 +205,7 @@ def plot_divergence_all(dataset, divergences, runs, show_plot=True):
     plt.ylabel('Loss')
     plt.title(f'Evolution of All Discriminator Losses\n({dataset} Trained With Respective Divergences)')
 
-    plt.savefig(f"experiments/{dataset}/PlotDivergenceAllDiscriminator.png")
+    plt.savefig(f"experiments/{dataset}/PlotDivergenceAllDiscriminator.svg")
 
     if not show_plot:
         plt.close(fig)
@@ -242,7 +242,7 @@ def plot_real_fake_training(dataset, divergence, run, show_plot=True):
     plt.ylabel('Accuracy')
     plt.title(f'Evolution of Real / Fake Statistics\n({dataset} Trained With {divergence})')
 
-    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotStatTrainingRealFake.png")
+    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotStatTrainingRealFake.svg")
 
     if not show_plot:
         plt.close(fig)
@@ -279,7 +279,7 @@ def plot_real_fake_all(dataset, divergences, runs, show_plot=True):
     plt.ylabel('Accuracy')
     plt.title(f'Evolution of Real Statistics\n({dataset} Trained With Respective Divergences)')
 
-    plt.savefig(f"experiments/{dataset}/PlotStatAllReal.png")
+    plt.savefig(f"experiments/{dataset}/PlotStatAllReal.svg")
 
     if not show_plot:
         plt.close(fig)
@@ -313,7 +313,7 @@ def plot_real_fake_all(dataset, divergences, runs, show_plot=True):
     plt.ylabel('Accuracy')
     plt.title(f'Evolution of Fake Statistics\n({dataset} Trained With Respective Divergences)')
 
-    plt.savefig(f"experiments/{dataset}/PlotStatAllFake.png")
+    plt.savefig(f"experiments/{dataset}/PlotStatAllFake.svg")
 
     if not show_plot:
         plt.close(fig)
@@ -345,7 +345,7 @@ def plot_walk_training(dataset, divergence, run, show_plot=True):
     plt.ylabel('Step L2 Norm')
     plt.title(f'Evolution of Step Length\n({dataset} Trained With {divergence})')
 
-    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotStatTrainingWalk.png")
+    plt.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/PlotStatTrainingWalk.svg")
 
     if not show_plot:
         plt.close(fig)
@@ -378,7 +378,7 @@ def plot_walk_all(dataset, divergences, runs, show_plot=True):
     plt.ylabel('Step L2 Norm')
     plt.title(f'Evolution of Generator Step Length\n({dataset} Trained With Respective Divergences)')
 
-    plt.savefig(f"experiments/{dataset}/PlotStatAllWalkGenerator.png")
+    plt.savefig(f"experiments/{dataset}/PlotStatAllWalkGenerator.svg")
 
     if not show_plot:
         plt.close(fig)
@@ -408,7 +408,7 @@ def plot_walk_all(dataset, divergences, runs, show_plot=True):
     plt.ylabel('Step L2 Norm')
     plt.title(f'Evolution of Discriminator Step Length\n({dataset} Trained With Respective Divergences)')
 
-    plt.savefig(f"experiments/{dataset}/PlotStatAllWalkDiscriminator.png")
+    plt.savefig(f"experiments/{dataset}/PlotStatAllWalkDiscriminator.svg")
 
     if not show_plot:
         plt.close(fig)
@@ -430,7 +430,7 @@ def plot_tsne(fake_img, real_img, dataset, divergence, run, epoch):
                                palette=['purple', 'red'],
                                legend='auto',
                                data=tsne_df)
-    sns_plot.figure.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/TSNEVIZ%d.png" % epoch)
+    sns_plot.figure.savefig(f"experiments/{dataset}/{divergence}/{run:0>3}/TSNEVIZ%d.svg" % epoch)
     # Closing because I hate matplotlib its a piece of garbage
     plt.close(sns_plot.figure)
 
@@ -440,13 +440,13 @@ def plot_mural(dataset, divergences, runs, epoch_total, epoch_increment):
     epoch_views = math.floor(epoch_total / epoch_increment)
     mural = None
     for (divergence, run) in zip(divergences, runs):
-        if not os.path.exists(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID0.png'):
-            print(f"Grid for epoch 0 is missing; skipping. experiments/{dataset}/{divergence}/{run:0>3}/GRID0.png does not exist.")
+        if not os.path.exists(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID0.svg'):
+            print(f"Grid for epoch 0 is missing; skipping. experiments/{dataset}/{divergence}/{run:0>3}/GRID0.svg does not exist.")
             continue
         for epoch in range(0, epoch_total, epoch_increment):
-            if os.path.exists(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png'):
+            if os.path.exists(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.svg'):
                 try:
-                    grid = Image.open(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png')
+                    grid = Image.open(f'experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.svg')
                     grid = TF.to_tensor(grid).unsqueeze(0)
                     if mural is None:
                         mural = grid
@@ -454,10 +454,10 @@ def plot_mural(dataset, divergences, runs, epoch_total, epoch_increment):
                     else:
                         mural = torch.cat([mural, grid], axis=0)
                 except:
-                    print(f"Error while stitching mural; stopped at experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png.")
+                    print(f"Error while stitching mural; stopped at experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.svg.")
                     return
             else:
-                print(f"Grid for epoch {epoch} is missing; aborting. experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.png does not exist.")
+                print(f"Grid for epoch {epoch} is missing; aborting. experiments/{dataset}/{divergence}/{run:0>3}/GRID{epoch}.svg does not exist.")
                 return
 
-    save_image(mural.view(-1, 3, image_shape[2], image_shape[3]), f"experiments/{dataset}/Mural.png", nrow=epoch_views)
+    save_image(mural.view(-1, 3, image_shape[2], image_shape[3]), f"experiments/{dataset}/Mural.svg", nrow=epoch_views)

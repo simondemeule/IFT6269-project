@@ -15,9 +15,9 @@ import os.path
 
 # Utility data structure for storing divergence data
 class DivergenceData:
-    def __init__(self, name):
+    def __init__(self, name, argsdict):
         self.name = name
-        self.divergence = Divergence(name)
+        self.divergence = Divergence(name, argdict=argsdict)
 
         self.current_gen = None
         self.current_dis = None
@@ -121,14 +121,14 @@ def run_exp(argsdict):
         Fix_Noise = Variable(torch.normal(torch.zeros(25, generator_latent_dimensions), torch.ones(25, generator_latent_dimensions)))
 
     # Data for training divergence
-    training = DivergenceData(argsdict['divergence'])
+    training = DivergenceData(argsdict['divergence'], argsdict)
 
     # Data for ohter divergence, if enabled
     if argsdict["divergence_all_other"]:
         other = []
         for divergence_name in ['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon']:
             if divergence_name != argsdict['divergence']:
-                other.append(DivergenceData(divergence_name))
+                other.append(DivergenceData(divergence_name, argsdict))
 
     # Data for parameter walk, if enabled
     if argsdict['parameter_walk']:
@@ -352,8 +352,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--use_cnn_generator', action='store_true', help='whether to use the cnn generator or the linear one')
     parser.add_argument('--generator_latent_dimensions', type=int, default='25', help='Latent dimensions of generator (Int)')
-    parser.add_argument('--generator_hidden_dimensions', nargs='+', type=int, default=[200, 200], help='Hidden dimensions of generator (Int array)')
-    parser.add_argument('--discriminator_hidden_dimensions', nargs='+', type=int, default=[32, 32], help='Hidden dimensions of discriminator (Int array)')
+    parser.add_argument('--generator_hidden_dimensions', nargs='+', type=int, default=[512, 512], help='Hidden dimensions of generator (Int array)')
+    parser.add_argument('--discriminator_hidden_dimensions', nargs='+', type=int, default=[256, 256], help='Hidden dimensions of discriminator (Int array)')
     parser.add_argument('--discriminator_updates', type=int, default='1', help='Number of critic updates per generator update')
 
     parser.add_argument('--modified_loss', action='store_true', help='Use the loss of section 3.2 instead of the original formulation')
@@ -363,15 +363,23 @@ if __name__ == '__main__':
     parser.add_argument('--optimizer', type=str, default='adams', help='The optimizer used for updating the distribution parameters. Include Adams and SGD')
 
     parser.add_argument('--falseDiv', type=str, default='hellinger', help='for piecewise divergence divergence to use when Tx is lower then threshold')
-    parser.add_argument('--trueDiv', type=str, default='total_variation', help='for piecewise divergence divergence to use when Tx is higher then threshold')
+    parser.add_argument('--trueDiv', type=str, default='forward_kl', help='for piecewise divergence divergence to use when Tx is higher then threshold')
     args = parser.parse_args()
 
     argsdict = args.__dict__
     print("=================================================================================================")
     print(argsdict)
     print("=================================================================================================")
+    #Total Var: 128 128 64 64
+    #Forward KL 512 512 256 256 try +
+    #Reverse KL KL 512 512 256 256 try +
+    #Pearson KL 512 512 256 256 try +
+    #hellinger KL 512 512 256 256 try +
+    #jesnsen shannong KL 128 128 32 32
+    #piecewise 512 512 256 256
+
     if argsdict['divergence'] == 'all':
-        divergences = ['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon','alpha_div']
+        divergences = ['total_variation', 'forward_kl', 'reverse_kl', 'pearson', 'hellinger', 'jensen_shannon','piecewise']
         for divergence in divergences:
             print(divergence)
             argsdict['divergence'] = divergence

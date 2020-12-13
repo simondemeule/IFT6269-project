@@ -226,7 +226,7 @@ class Divergence:
     """ Compute G and D loss using an f-divergence metric.
     Implementations based on Table 6 (Appendix C) of the arxiv paper.
     """
-    def __init__(self, method):
+    def __init__(self, method, argdict=None):
         self.method = method.lower().strip()
         assert self.method in ['total_variation',
                                'forward_kl',
@@ -244,6 +244,7 @@ class Divergence:
                                'hellinger',
                                'jensen_shannon']:
             print("Some functions have not been implemented correctly for this divergence and so results may not be reliable. I hope you know what you're doing")
+        self.argdict=argdict
 
     def D_loss(self, DX_score, DG_score):
         """ Compute batch loss for discriminator using f-divergence metric """
@@ -275,27 +276,28 @@ class Divergence:
             alpha = 1.5
             return -(torch.mean(DX_score)-torch.mean(1./alpha*(DG_score*(alpha-1.) + 1.)**(alpha/(alpha-1)) -1./alpha ))
         elif self.method == 'piecewise':
-            return -(torch.mean(1 - torch.exp(DX_score)) \
-                     - torch.mean((1 - torch.exp(DG_score)) / (torch.exp(DG_score))))
+            # return -(torch.mean(1 - torch.exp(DX_score)) \
+            #          - torch.mean((1 - torch.exp(DG_score)) / (torch.exp(DG_score))))
             #for alpha >1
-            TxHellingerDX=1-torch.exp(DX_score)
-            TxHellingerDG=1-torch.exp(DG_score)
+            # TxHellingerDX=1-torch.exp(DX_score)
+            # TxHellingerDG=1-torch.exp(DG_score)
             #We want falsly classified examples to have hellinger gradient = strong, and correctly to have totalVariation gradient
-            maskHellingDG=TxHellingerDG>0
-            maskTotalDG=TxHellingerDG<0
-            maskHellingDX = TxHellingerDX < 0
-            maskTotalDX = TxHellingerDX > 0
-            #Total Variation part
-            TTX=-torch.log(torch.tensor(2.))-torch.log((1+torch.exp(-DX_score[maskTotalDX]))) if len(DX_score[maskTotalDX])>0 else torch.zeros(1).cuda()
-            TTG=--(torch.log(torch.tensor(2.))-torch.exp(torch.log(torch.tensor(2.))\
-                        -torch.log((1+torch.exp(-DG_score[maskTotalDG]))))) if len(DG_score[maskTotalDG])>0 else torch.zeros(1).cuda()
-            HellingerX=-(1-torch.exp(DX_score[maskHellingDX])) if len(DX_score[maskHellingDX])>0 else torch.zeros(1).cuda()
-            HellingerG=-(1-torch.exp(DG_score[maskHellingDG]))/(torch.exp(DG_score[maskHellingDG])) if len(DG_score[maskHellingDG])>0 else torch.zeros(1).cuda()
+            # maskHellingDG=TxHellingerDG!=1.843214312
+            # maskTotalDG=TxHellingerDG!=1.843214312
+            # maskHellingDX = TxHellingerDX !=1.843214312
+            # maskTotalDX = TxHellingerDX !=1.843214312
+            #Jensen-Shannong part
+            # TTX=-torch.log(torch.tensor(2.))-torch.log((1+torch.exp(-DX_score[maskTotalDX]))) if len(DX_score[maskTotalDX])>0 else torch.zeros(1).cuda()
+            TTG=-(torch.mean(DX_score) - torch.mean(torch.exp(DG_score-1)))
+            # HellingerX=-(1-torch.exp(DX_score[maskHellingDX])) if len(DX_score[maskHellingDX])>0 else torch.zeros(1).cuda()
+            # HellingerG=-(1-torch.exp(DG_score[maskHellingDG]))/(torch.exp(DG_score[maskHellingDG])) if len(DG_score[maskHellingDG])>0 else torch.zeros(1).cuda()
             # print(TTX, TTG, HellingerG, HellingerX)
             # print(len(maskTotalDX))
             # print(DX_score[maskTotalDX])
             # print(TTX+TTG+HellingerX+HellingerG)
-            return torch.mean(torch.cat([TTX,TTG,HellingerX,HellingerG]))
+            Hellinger=-(torch.mean(1-torch.exp(DX_score)) \
+                        - torch.mean((1-torch.exp(DG_score))/(torch.exp(DG_score))))
+            return TTG+Hellinger
 
 
 
@@ -326,16 +328,34 @@ class Divergence:
             alpha = 1.5
             return -torch.mean(1./alpha*(DG_score*(alpha-1.) + 1.)**(alpha/(alpha-1)) -1./alpha )
         elif self.method == 'piecewise':
-            #for alpha >1
-            TxHellingerDG=1-torch.exp(DG_score)
             #We want falsly classified examples to have hellinger gradient = strong, and correctly to have totalVariation gradient
-            thresh=0
-            maskHellingDG=DG_score>thresh
-            maskTotalDG=DG_score<thresh
-            TT=- -(torch.log(torch.tensor(2.))-torch.exp(torch.log(torch.tensor(2.))\
-                        -torch.log((1+torch.exp(-DG_score[maskTotalDG]))))) if len(DG_score[maskTotalDG])>0 else torch.zeros(1).cuda()
+            thresh=1.783216745
+            maskHellingDG=DG_score!=thresh
+            maskOtherDG=DG_score!=thresh
+
+            DG_Other=DG_score[maskOtherDG]
+
+            if self.argdict['trueDiv']=='hellinger':
+                TT=-(1-torch.exp(DG_Other))/(torch.exp(DG_Other)) if len(DG_score[maskOtherDG])>0 else torch.zeros(1).cuda()
+            elif self.argdict['trueDiv']=='forward_kl':
+                #Move forward KL so that it its intersect point is at 0
+                TT=-torch.exp(DG_score[maskOtherDG]-1) if len(DG_score[maskOtherDG])>0 else torch.zeros(1).cuda()
+                # print(TT)
+                # print(TT)
+            elif self.argdict['trueDiv']=='pearson':
+                #Move forward KL so that it its intersect point is at 0
+                TT=-0.25*DG_score[maskOtherDG]**2 + DG_score[maskOtherDG] if len(DG_score[maskOtherDG])>0 else torch.zeros(1).cuda()
+                # print(TT)
             Hell=-(1-torch.exp(DG_score[maskHellingDG]))/(torch.exp(DG_score[maskHellingDG])) if len(DG_score[maskHellingDG])>0 else torch.zeros(1).cuda()
-            return torch.mean(torch.cat([TT,Hell]))
+            if len(DG_score[maskOtherDG])==0:
+                # print("Hellinger only")
+                return torch.mean(Hell)
+            elif len(DG_score[maskHellingDG])==0:
+                # print("Other only")
+                return torch.mean(TT)
+            else:
+                # print(torch.cat([TT,Hell]))
+                return torch.mean(torch.cat([TT,Hell]))
             # return -torch.mean((1 - torch.exp(DG_score)) / (torch.exp(DG_score)))
 
     #modifying the generator loss (trick 3.2) for         
