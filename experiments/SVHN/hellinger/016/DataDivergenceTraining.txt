@@ -1,0 +1,1 @@
+{"divergence": "hellinger", "gen_loss": [0.6229977142602595], "dis_loss": [-0.6031295971448765], "real_stat": [0.8139784588348067], "fake_stat": [0.0]}
