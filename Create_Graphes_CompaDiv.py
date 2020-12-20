@@ -6,9 +6,9 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 
-div=['total_variation', 'forward_kl', 'hellinger', 'jensen_shannon', 'pearson', 'reverse_kl', 'piecewise']
+div=['total_variation', 'forward_kl', 'hellinger', 'jensen_shannon', 'pearson', 'reverse_kl']
 #Redo hellinger
-div=['total_variation']
+# div=['total_variation']
 
 folder='experiments/MNIST'
 suffixe='Pretty_three'
@@ -35,13 +35,13 @@ for dd in div:
             plt.plot(x, y, label=ff['divergence'])
 
 
-            plt.xlabel('Value of V(x)')
-            plt.ylabel('Gradient')
+            plt.xlabel('Epoch')
+            plt.ylabel('Estimated Lower Bound')
             plt.legend()
             axes = plt.gca()
             # axes.set_xlim([xmin,xmax])
             axes.set_ylim([-10, 10])
-            plt.title('Gradient of the generator vs V(x)')
+            plt.title(f'Lower bound over all divergence when minimizing \n the {ff["divergence"]} divergence')
             plt.savefig(f"Graphes_Minim_Divergences/{dd}.svg")
             plt.close(fig)
 
