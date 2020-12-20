@@ -4,7 +4,7 @@ from f_gan import Divergence
 import matplotlib.pyplot as plt
 import numpy as np
 
-fprim1=[0,1,0,0,0,0, 0]
+fprim1=[0,1,0,0,0,0,0]
 
 variable2=torch.zeros(1, requires_grad=True)
 
@@ -28,7 +28,7 @@ for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pea
         # print(lg)
         grad = torch.autograd.grad(lg, variable)
         y.append(grad[0].cpu())
-        if i==fprim:
+        if i==fprim and loss!='piecewise':
             plt.scatter(i, grad[0].cpu(), color=color)
 
 
@@ -42,7 +42,7 @@ axes = plt.gca()
 # axes.set_xlim([xmin,xmax])
 axes.set_ylim([-10,10])
 plt.title('Gradient of the generator vs V(x)')
-plt.savefig(f"Grad_Graphs/GradientofGeneratorVsVx.svg")
+plt.savefig(f"Grad_Graphs/GradientofGeneratorVsVx.png")
 plt.close(fig)
 
 
@@ -74,19 +74,20 @@ for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pea
     # print(torch.Tensor([fprim]))
     # fprim=div.Tx(torch.Tensor([fprim]))[0].item()
     # print(fprim)
-    line=np.zeros_like(x)+(fprim+5)*10
+    line=np.zeros_like(x)+(-fprim+5)*10
     # print(line)
     figure, axes = plt.subplots()
     plt.imshow(y, cmap='hot', interpolation='nearest')
     plt.plot(np.arange(0,100), line, color='white')
-    plt.plot(np.zeros_like(x)+(-fprim+5)*10,np.arange(0,100), color='white')
+    line = np.zeros_like(x) + (fprim + 5) * 10
+    plt.plot(np.zeros_like(x)+(fprim+5)*10,np.arange(0,100), color='white')
 
     # plt.plot(x, y, label=loss, color=color)
 
 
     plt.xlabel('Value of V(x) from the real distribution')
     plt.ylabel('Value of V(x) from the generated distribution')
-    plt.legend()
+    # plt.legend()
     axes = plt.gca()
     plt.colorbar()
     # axes.axis([-5,5,-5,5])

@@ -172,6 +172,7 @@ def run_exp(argsdict):
             # print(training.divergence.D_loss(score_dx, score_dg))
 
             training.current_dis.backward()
+            # torch.nn.utils.clip_grad_norm_(critic.parameters(), max_norm=1e-8, norm_type=2)
             if argsdict['optimizer'] == 'SGD':
                 optim_critic.single_step(objective=-objective)
             else:
@@ -193,6 +194,8 @@ def run_exp(argsdict):
                     item.log_batch_fake.append(item.current_fake)
             # clipping=anneal_function('logistic', epoch, 0.5, argsdict['epochs']/4)
             # # print(clipping)
+            # clipping=0.1
+            # clipping=0.1
             # for p in critic.parameters():
             #     p.data.clamp_(-clipping, clipping)
 
@@ -352,8 +355,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--use_cnn_generator', action='store_true', help='whether to use the cnn generator or the linear one')
     parser.add_argument('--generator_latent_dimensions', type=int, default='25', help='Latent dimensions of generator (Int)')
-    parser.add_argument('--generator_hidden_dimensions', nargs='+', type=int, default=[128, 128], help='Hidden dimensions of generator (Int array)')
-    parser.add_argument('--discriminator_hidden_dimensions', nargs='+', type=int, default=[64, 64], help='Hidden dimensions of discriminator (Int array)')
+    parser.add_argument('--generator_hidden_dimensions', nargs='+', type=int, default=[64, 64], help='Hidden dimensions of generator (Int array)')
+    parser.add_argument('--discriminator_hidden_dimensions', nargs='+', type=int, default=[32, 32], help='Hidden dimensions of discriminator (Int array)')
     parser.add_argument('--discriminator_updates', type=int, default='1', help='Number of critic updates per generator update')
 
     parser.add_argument('--modified_loss', action='store_true', help='Use the loss of section 3.2 instead of the original formulation')

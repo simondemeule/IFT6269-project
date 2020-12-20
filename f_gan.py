@@ -83,9 +83,16 @@ class Generator(nn.Module):
         x = [nn.Linear(z_dim, hidden_dim2),
              nn.BatchNorm1d(hidden_dim2),
              nn.ReLU(inplace=True),
-             nn.Linear(hidden_dim, hidden_dim2),
-             nn.BatchNorm1d(hidden_dim2),
-             nn.ReLU(inplace=True),
+             # nn.Linear(hidden_dim, hidden_dim2),
+             # nn.BatchNorm1d(hidden_dim2),
+             # nn.ReLU(inplace=True),
+             # nn.Linear(hidden_dim, hidden_dim2),
+             # nn.BatchNorm1d(hidden_dim2),
+             # nn.ReLU(inplace=True),
+             # nn.Linear(hidden_dim, hidden_dim2),
+             # nn.BatchNorm1d(hidden_dim2),
+             # nn.ReLU(inplace=True),
+
              nn.Linear(hidden_dim2, image_size[0]*image_size[1]*image_size[2])]
 
         self.x = nn.Sequential(*x)
@@ -100,7 +107,7 @@ class Generator(nn.Module):
             x = torch.sigmoid(x)
         x.reshape(x.shape[0], self.image_size[0],self.image_size[1],self.image_size[2])
         return x
-#
+
 # class Generator(nn.Module):
 #     def __init__(self, image_size, hidden_dim, hidden_dim2, z_dim, encoding):
 #
@@ -113,28 +120,29 @@ class Generator(nn.Module):
 #              # nn.ReLU(inplace=True),
 #              nn.Linear(hidden_dim2, 625)]
 #         self.linear=nn.Sequential(*x)
+#         # self.linear2=nn.Linear(78, 625)
 #         cnn=[nn.ConvTranspose2d(1, 1, 2, 1, 0),
 #              nn.ReLU(True),
 #              nn.BatchNorm2d(1),
 #              nn.ConvTranspose2d(1, 1, 3, 1, 0)]
 #         self.cnn=nn.Sequential(*cnn)
-#         self.lastLayer=nn.Linear(784, image_size[0]*image_size[1]*image_size[2])
+#         self.lastLayer=nn.Linear(784,784)
 #         self.encoding=encoding
 #     def forward(self, z):
 #         z = to_cuda(z.view(z.shape[0], -1))
 #         # z=z.view(z.shape[0], z.shape[1], 1, 1)
 #         z=self.linear(z)
-#         z=z.view(z.shape[0], 1, 25, 25)
+#         z = z.view(z.shape[0], 1, 25, 25)
 #         z=self.cnn(z)
 #         z = to_cuda(z.view(z.shape[0], -1))
-#         # print(z.shape)
 #         z=self.lastLayer(z)
+#         # print(z.shape)
 #         if self.encoding == 'tanh':
 #             z = torch.tanh(z)
 #         elif self.encoding=='sigmoid':
 #             z = torch.sigmoid(z)
 #         return z
-# #
+# # #
 class Critic(nn.Module):
     """ Discriminator. Input is an image (real or generated),
     output is P(generated).
@@ -159,53 +167,81 @@ class Critic(nn.Module):
         x = self.x(x)
         return x
 #
-class Criticsvhn(nn.Module):
-    def __init__(self, image_size, h_dim=64):
-        super(Criticsvhn, self).__init__()
-
-        x = [nn.Conv2d(3, h_dim, 4, 2, 1),
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(h_dim, 2*h_dim, 4, 2, 1),
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(2*h_dim, 4*h_dim, 4, 2, 1),
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(4*h_dim, 1, 4, 1, 0)]
-
-        self.x = nn.Sequential(*x)
-        self.linear = nn.Linear(image_size, h_dim)
-        self.discriminate = nn.Linear(h_dim, 1)
-        self.final=nn.Linear(2,1)
-
-    def forward(self, x):
-        cnn=self.x(x).squeeze()
-        x = to_cuda(x.view(x.shape[0], -1))
-        # print(self.linear)
-        # print(x.shape)
-        activated = F.relu(self.linear(x))
-        discrimination = self.discriminate(activated)
-        return torch.sigmoid(self.final(torch.cat([discrimination, cnn.unsqueeze(1)], dim=-1)))
-
-
-class Generatorsvhn(nn.Module):
-    def __init__(self, z_dim=100, h_dim=64):
-        super(Generatorsvhn, self).__init__()
-
-        decoder = [nn.ConvTranspose2d(z_dim, 4*h_dim, 4, 1, 0),
-                   nn.BatchNorm2d(4*h_dim),
-                   nn.ReLU(True),
-                   nn.ConvTranspose2d(4*h_dim, 2*h_dim, 4, 2, 1),
-                   nn.BatchNorm2d(2*h_dim),
-                   nn.ReLU(True),
-                   nn.ConvTranspose2d(2*h_dim, h_dim, 4, 2, 1),
-                   nn.BatchNorm2d(h_dim),
-                   nn.ReLU(True),
-                   nn.ConvTranspose2d(h_dim, 3, 4, 2, 1),
-                   nn.Tanh()
-                   ]
-        self.decoder = nn.Sequential(*decoder)
-
-    def forward(self, z):
-        return self.decoder(z.view(z.shape[0], z.shape[1], 1, 1))
+# class Critic(nn.Module):
+#     def __init__(self, image_size, h_dim, hidden_dim2):
+#         super(Critic, self).__init__()
+#
+#
+#         if image_size==(3,32,32):
+#             x = [nn.Conv2d(3, h_dim, 4, 2, 1),
+#                  nn.LeakyReLU(0.2, inplace=True),
+#                  nn.Conv2d(h_dim, 2*h_dim, 4, 2, 1),
+#                  nn.LeakyReLU(0.2, inplace=True),
+#                  nn.Conv2d(2*h_dim, 4*h_dim, 4, 2, 1),
+#                  nn.LeakyReLU(0.2, inplace=True),
+#                  nn.Conv2d(4*h_dim, 1, 4, 1, 0)]
+#         elif image_size==(1,28,28):
+#             x = [nn.Conv2d(1, h_dim, 4, 2, 1),
+#                  nn.LeakyReLU(0.2, inplace=True),
+#                  nn.Conv2d(h_dim, 2 * h_dim, 4, 2, 1),
+#                  nn.LeakyReLU(0.2, inplace=True),
+#                  nn.Conv2d(2 * h_dim, 4 * h_dim, 4, 2, 1),
+#                  nn.LeakyReLU(0.2, inplace=True),
+#                  nn.Conv2d(4 * h_dim, 1, 3, 1, 0)]
+#         self.x = nn.Sequential(*x)
+#         self.linear = nn.Linear(image_size[0]*image_size[1]*image_size[2], h_dim)
+#         self.discriminate = nn.Linear(h_dim, 1)
+#         self.final=nn.Linear(2,1)
+#
+#     def forward(self, x):
+#         x=to_cuda(x)
+#         cnn=self.x(x).squeeze()
+#         x = to_cuda(x.view(x.shape[0], -1))
+#         # print(self.linear)
+#         # print(x.shape)
+#         # print(x.shape)
+#         activated = F.relu(self.linear(x))
+#         discrimination = self.discriminate(activated)
+#         return self.final(torch.cat([discrimination, cnn.unsqueeze(1)], dim=-1))
+#
+#
+# class Generator(nn.Module):
+#     def __init__(self,  image_size, h_dim, hidden_dim2, z_dim, encoding):
+#         super(Generator, self).__init__()
+#
+#         if image_size==(3,32,32):
+#             decoder = [nn.ConvTranspose2d(z_dim, 4*h_dim, 4, 1, 0),
+#                        nn.BatchNorm2d(4*h_dim),
+#                        nn.ReLU(True),
+#                        nn.ConvTranspose2d(4*h_dim, 2*h_dim, 4, 2, 1),
+#                        nn.BatchNorm2d(2*h_dim),
+#                        nn.ReLU(True),
+#                        nn.ConvTranspose2d(2*h_dim, h_dim, 4, 2, 1),
+#                        nn.BatchNorm2d(h_dim),
+#                        nn.ReLU(True),
+#                        nn.ConvTranspose2d(h_dim, 3, 4, 2, 1),
+#                        nn.Tanh()
+#                        ]
+#         elif image_size==(1,28,28):
+#             decoder = [nn.ConvTranspose2d(z_dim, 4 * h_dim, 4, 1, 0),
+#                        nn.BatchNorm2d(4 * h_dim),
+#                        nn.ReLU(True),
+#                        nn.ConvTranspose2d(4 * h_dim, 2 * h_dim, 4, 2, 1),
+#                        nn.BatchNorm2d(2 * h_dim),
+#                        nn.ReLU(True),
+#                        nn.ConvTranspose2d(2 * h_dim, h_dim, 3, 2, 1),
+#                        nn.BatchNorm2d(h_dim),
+#                        nn.ReLU(True),
+#                        nn.ConvTranspose2d(h_dim, 1, 2, 2, 1),
+#                        nn.Sigmoid()
+#                        ]
+#         self.decoder = nn.Sequential(*decoder)
+#
+#     def forward(self, z):
+#         z=to_cuda(z)
+#         z=self.decoder(z.view(z.shape[0], z.shape[1], 1, 1))
+#         # print(z.shape)
+#         return z
 
 
 class fGAN(nn.Module):
