@@ -319,12 +319,16 @@ def run_exp(argsdict):
             if argsdict["divergence_all_other"]:
                 plot_divergence_other(argsdict['dataset'], argsdict['divergence'], run, show_plot=False)
             plot_real_fake_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=False)
+            if argsdict["parameter_walk"]:
+                plot_walk_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=False)
     
     # Epochs are over, finally display the plots
     plot_divergence_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=True)
     if argsdict["divergence_all_other"]:
         plot_divergence_other(argsdict['dataset'], argsdict['divergence'], run, show_plot=True)
     plot_real_fake_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=True)
+    if argsdict["parameter_walk"]:
+        plot_walk_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=True)
 
     # plot_divergence_training(argsdict['dataset'], argsdict['divergence'], run, show_plot=show_plot)
     # if argsdict["divergence_all_other"]:
@@ -341,7 +345,7 @@ if __name__ == '__main__':
                         help='divergence to use. Options include total_variation, forward_kl, reverse_kl, pearson, hellinger, jensen_shannon, alpha_div, piecewise or all')
     parser.add_argument('--divergence_all_other', action='store_true',
                         help='Logs all other divergences for comparaison')
-    parser.add_argument('--parameter_walk', action='store_true', help='Log the L2 norm of the parameter change at each epoch while training')
+    parser.add_argument('--parameter_walk', action='store_false', help='Log the L2 norm of the parameter change at each epoch while training')
     parser.add_argument('--gaussian_size', type=int, default='2', help='The size of the Gaussian we generate')
     parser.add_argument('--gaussian_number', type=int, default='1', help='The number of Gaussian we generate')
     parser.add_argument('--epochs', type=int, default='50', help='Number of epochs to run for training')
@@ -352,12 +356,12 @@ if __name__ == '__main__':
 
     parser.add_argument('--use_cnn_generator', action='store_true', help='whether to use the cnn generator or the linear one')
     parser.add_argument('--generator_latent_dimensions', type=int, default='25', help='Latent dimensions of generator (Int)')
-    parser.add_argument('--generator_hidden_dimensions', nargs='+', type=int, default=[128, 128], help='Hidden dimensions of generator (Int array)')
-    parser.add_argument('--discriminator_hidden_dimensions', nargs='+', type=int, default=[64, 64], help='Hidden dimensions of discriminator (Int array)')
+    parser.add_argument('--generator_hidden_dimensions', nargs='+', type=int, default=[64, 64], help='Hidden dimensions of generator (Int array)')
+    parser.add_argument('--discriminator_hidden_dimensions', nargs='+', type=int, default=[32, 32], help='Hidden dimensions of discriminator (Int array)')
     parser.add_argument('--discriminator_updates', type=int, default='1', help='Number of critic updates per generator update')
 
     parser.add_argument('--modified_loss', action='store_true', help='Use the loss of section 3.2 instead of the original formulation')
-    parser.add_argument('--visualize', action='store_true', help='Save visualization of the datasets using t-sne')
+    parser.add_argument('--visualize', action='store_false', help='Save visualization of the datasets using t-sne')
     parser.add_argument('--use_cuda', action='store_true', help='Use gpu')
     parser.add_argument('--plot', action='store_true', help='create the plots')
     parser.add_argument('--optimizer', type=str, default='adams', help='The optimizer used for updating the distribution parameters. Include Adams and SGD')

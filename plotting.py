@@ -213,6 +213,77 @@ def plot_divergence_all(dataset, divergences, runs, show_plot=True):
         plt.show()
 
 
+# Plots traraining runs for a single divergence with varying hyperparameter
+def plot_divergence_hyper(dataset, divergence, runs, labels, info, show_plot=True, colors=None):
+    # Generators
+    if not show_plot:
+        plt.ioff()
+
+    fig = plt.figure()
+
+    # This iterator fix is disgusting I hate Python
+    for (run, label, color) in zip(runs, labels, colors if colors is not None else range(len(runs))):
+        try:
+            with open(f"experiments/{dataset}/{divergence}/{run:0>3}/DataDivergenceTraining.txt", "r") as file:
+                training = json.load(file)
+                file.close
+        except:
+            print(f"Unable to open experiments/{dataset}/{divergence}/{run:0>3}/DataDivergenceTraining.txt; skipping entry.\nFile may be displaced or deleted")
+            continue
+
+        epochs = [i for i in range(len(training['gen_loss']))]
+        if colors is not None:
+            plt.plot(epochs, training['gen_loss'], label=label, color=color)
+        else:
+            plt.plot(epochs, training['gen_loss'], label=label)
+
+    plt.legend()
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title(f'Evolution of Discriminator Losses\n({dataset} Trained With {divergence} {info})')
+
+    plt.savefig(f"experiments/{dataset}/{divergence}/PlotDivergenceHyperGenerator.png")
+
+    if not show_plot:
+        plt.close(fig)
+    else:
+        plt.show()
+
+    # Discriminators
+    if not show_plot:
+        plt.ioff()
+
+    fig = plt.figure()
+    
+    # This iterator fix is disgusting I hate Python
+    for (run, label, color) in zip(runs, labels, colors if colors is not None else range(len(runs))):
+        try:
+            with open(f"experiments/{dataset}/{divergence}/{run:0>3}/DataDivergenceTraining.txt", "r") as file:
+                training = json.load(file)
+                file.close
+        except:
+            print(f"Unable to open experiments/{dataset}/{divergence}/{run:0>3}/DataDivergenceTraining.txt; skipping entry.\nFile may be displaced or deleted")
+            continue
+
+        epochs = [i for i in range(len(training['dis_loss']))]
+        if colors is not None:
+            plt.plot(epochs, training['dis_loss'], label=label, color=color)
+        else:
+            plt.plot(epochs, training['dis_loss'], label=label)
+
+    plt.legend()
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title(f'Evolution of Discriminator Losses\n({dataset} Trained With {divergence} {info})')
+
+    plt.savefig(f"experiments/{dataset}/{divergence}/PlotDivergenceHyperDiscriminator.png")
+
+    if not show_plot:
+        plt.close(fig)
+    else:
+        plt.show()
+
+
 # Plots the evolution of real / fake statistics for a given training divergence
 # This data is generated from a single run, trained on a single divergence
 def plot_real_fake_training(dataset, divergence, run, show_plot=True):

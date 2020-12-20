@@ -17,4 +17,10 @@ d = numpy.linalg.norm(p - q)
 print(d)
 """
 
-plot_mural("MNIST", ["jensen_shannon", "total_variation"], [0, 0], 50, 5)
+#plot_mural("MNIST", ["jensen_shannon", "total_variation"], [0, 0], 50, 5)
+
+#plot_walk_training('MNIST', 'hellinger', 13, show_plot=True)
+
+#plot_mural("MNIST", ["hellinger", "hellinger"], [20, 19], 50, 10, epoch_shape_out=(5, 5))
+
+plot_divergence_hyper("MNIST", "hellinger", [13, 14, 15, 16], ["128", "64", "32", "16"], "and Varying Batch Size", colors=["orangered", "crimson", "darkblue", "dodgerblue"])

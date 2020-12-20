@@ -25,7 +25,7 @@ for dataset in datasets_all:
     plot_walk_all(dataset, divergences, runs, show_plot=False)
     """
     # For training runs with different divergences, plot all murals
-    plot_mural(dataset, divergences, runs, 50, 5, epoch_shape_out=(5, 1), column=True)
+    plot_mural(dataset, divergences, runs, 50, 2, epoch_shape_out=(5, 1))
 
     """
     # Plots that are specific to each divergence
