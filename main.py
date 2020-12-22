@@ -238,11 +238,11 @@ def run_exp(argsdict):
          # Calculate parameter walk if enabled
         # print(clipping)
         if argsdict['parameter_walk']:
-            walk.param_final_gen = torch.cat(tuple(torch.flatten(x) for x in generator.parameters())).detach().clone()
-            walk.param_final_dis = torch.cat(tuple(torch.flatten(x) for x in critic.parameters())).detach().clone()
+            walk.param_final_gen = torch.cat(tuple(torch.flatten(x) for x in generator.parameters())).cpu().detach().clone()
+            walk.param_final_dis = torch.cat(tuple(torch.flatten(x) for x in critic.parameters())).cpu().detach().clone()
 
-            walk.walk_current_gen = float(np.linalg.norm(walk.param_final_gen - walk.param_init_gen))
-            walk.walk_current_dis = float(np.linalg.norm(walk.param_final_dis - walk.param_init_dis))
+            walk.walk_current_gen = float(np.linalg.norm(walk.param_final_gen - walk.param_init_gen.cpu()))
+            walk.walk_current_dis = float(np.linalg.norm(walk.param_final_dis - walk.param_init_dis.cpu()))
 
             walk.walk_log_epoch_gen.append(walk.walk_current_gen)
             walk.walk_log_epoch_dis.append(walk.walk_current_dis)

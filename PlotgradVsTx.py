@@ -41,7 +41,7 @@ plt.legend()
 axes = plt.gca()
 # axes.set_xlim([xmin,xmax])
 axes.set_ylim([-10,10])
-plt.title('Gradient of the generator vs V(x)')
+# plt.title('Gradient of the generator vs V(x)')
 plt.savefig(f"Grad_Graphs/GradientofGeneratorVsVx.png")
 plt.close(fig)
 
@@ -111,6 +111,6 @@ for loss,color,fprim in zip(['total_variation', 'forward_kl', 'reverse_kl', 'pea
         title='Jensen Shannon'
     elif loss=='piecewise':
         title='Piecewise'
-    plt.title(f'Gradient of the discriminator vs V(x) for the {title} divergence')
+    # plt.title(f'Gradient of the discriminator vs V(x) for the {title} divergence')
     plt.savefig(f"Grad_Graphs/GradientOfDiscriminator{loss}.png")
     plt.close(fig)
