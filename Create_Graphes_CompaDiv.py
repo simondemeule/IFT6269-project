@@ -6,7 +6,9 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 
-div=['total_variation', 'forward_kl', 'hellinger', 'jensen_shannon', 'pearson', 'reverse_kl']
+div=['total_variation', 'forward_kl', 'hellinger', 'jensen_shannon', 'pearson', 'reverse_kl', 'piecewise']
+colors={'total_variation':'blue', 'forward_kl':'orange', 'hellinger':'pink', 'jensen_shannon':'gray', 'pearson':'green', 'reverse_kl':'purple', 'piecewise':'black'}
+CleanName={'total_variation':'Total Variation', 'forward_kl':'Forward KL', 'hellinger':'Hellinger', 'jensen_shannon':'Jensen-Shannon', 'pearson':'Pearson', 'reverse_kl':'Reverse KL', 'piecewise':'Piecewise'}
 #Redo hellinger
 # div=['total_variation']
 
@@ -22,18 +24,15 @@ for dd in div:
             fig = plt.figure()
             plt.ioff()
             for elem in ff:
-                print(elem)
                 y=[el*-1 for el in elem['dis_loss']]
-                print(y)
                 x=np.arange(len(y))
-                plt.plot(x, y, label=elem['divergence'])
+                plt.plot(x, y, label=CleanName[elem['divergence']], color=colors[elem['divergence']])
 
             #Tracing divergence
             ff = json.load(open(f'{folder}/{dd}/{run:0>3}/DataDivergenceTraining.txt', 'r'))
             y = [f*-1 for f in ff['dis_loss']]
             x = np.arange(len(y))
-            plt.plot(x, y, label=ff['divergence'])
-
+            plt.plot(x, y, label=CleanName[ff['divergence']], color=colors[ff['divergence']])
 
             plt.xlabel('Epoch')
             plt.ylabel('Estimated Lower Bound')
@@ -41,10 +40,12 @@ for dd in div:
             axes = plt.gca()
             # axes.set_xlim([xmin,xmax])
             axes.set_ylim([-10, 10])
-            plt.title(f'Lower bound over all divergence when minimizing \n the {ff["divergence"]} divergence')
-            plt.savefig(f"Graphes_Minim_Divergences/{dd}.svg")
+            # plt.title(f'Lower bound over all divergence when minimizing \n the {ff["divergence"]} divergence')
+            plt.savefig(f"Graphes_Minim_Divergences/{dd}.png")
+            # plt.savefig(f"test.png")
             plt.close(fig)
-
+            print("hwllo")
             break
-        except:
+        except Exception as e:
+            print(e)
             continue
