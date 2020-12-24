@@ -19,7 +19,7 @@ print(d)
 
 #plot_mural("MNIST", ["jensen_shannon", "total_variation"], [0, 0], 50, 5)
 
-#plot_walk_training('MNIST', 'hellinger', 13, show_plot=True)
+#plot_walk_training('MNIST', 'total_variation', 15, show_plot=True)
 
 #plot_mural("MNIST", ["hellinger", "hellinger"], [20, 19], 50, 10, epoch_shape_out=(5, 5))
 

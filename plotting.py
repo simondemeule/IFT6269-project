@@ -240,9 +240,9 @@ def plot_divergence_hyper(dataset, divergence, runs, labels, info, show_plot=Tru
     plt.legend()
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
-    plt.title(f'Evolution of Discriminator Losses\n({dataset} Trained With {divergence} {info})')
+    plt.title(f'Evolution of Generator Losses\n({dataset} Trained With {divergence} {info})')
 
-    plt.savefig(f"experiments/{dataset}/{divergence}/PlotDivergenceHyperGenerator.png")
+    plt.savefig(f"experiments/{dataset}/{divergence}/PlotDivergenceHyperGenerator.svg")
 
     if not show_plot:
         plt.close(fig)
@@ -276,7 +276,7 @@ def plot_divergence_hyper(dataset, divergence, runs, labels, info, show_plot=Tru
     plt.ylabel('Loss')
     plt.title(f'Evolution of Discriminator Losses\n({dataset} Trained With {divergence} {info})')
 
-    plt.savefig(f"experiments/{dataset}/{divergence}/PlotDivergenceHyperDiscriminator.png")
+    plt.savefig(f"experiments/{dataset}/{divergence}/PlotDivergenceHyperDiscriminator.svg")
 
     if not show_plot:
         plt.close(fig)
